@@ -49,17 +49,15 @@ export function isTerminalStatus(status: JobStatus): boolean {
     return status === "completed" || status === "failed" || status === "killed";
 }
 
-/** What kind of background job this is. "shell" is the default (bash/bash_bg);
- *  "agent" is a background pi -p process (agent_bg); "monitor" is a
- *  streaming-event watch (the monitor tool). */
-export type JobKind = "shell" | "agent" | "monitor";
+/** What kind of asynchronous job this is. "shell" is the default; "monitor"
+ * is a streaming-event watch from the bash_async_watch tool. */
+export type JobKind = "shell" | "monitor";
 
-/** Claude Code's typed task-id prefixes — one letter per kind, followed by 8
- *  random base36 chars (e.g. `b7f3k9a2x1`). See registry.newJobId. */
+/** Typed job identifiers use a kind prefix, the spawning process identifier, and
+ * eight random base36 characters (for example, `b1234-7f3k9a2x`). */
 export const JOB_ID_PREFIX: Record<JobKind, string> = {
     shell: "b",
     monitor: "m",
-    agent: "a",
 };
 
 export interface Job {
@@ -77,7 +75,7 @@ export interface Job {
     resolveDone?: () => void;
     /** Exactly-once latch for the terminal <task-notification> (Claude Code's
      *  `notified` flag). Set BEFORE the notification send, before a deliberate
-     *  kill, and when the agent reads the outcome via jobs output/attach — any
+     *  kill, and when the agent reads the outcome via bash_async_list output/attach — any
      *  path that already surfaced the result suppresses the notification. */
     notified?: boolean;
     isBackgrounded: boolean;
@@ -90,8 +88,8 @@ export interface Job {
 export type BackgroundReason = "manual" | "timeout";
 
 /** Transient handle for an in-flight foreground bash command, keyed by
- *  toolCallId in the registry. Ctrl+Shift+B and the timeout timer call
- *  requestPause to flip the command into the background. */
+ * toolCallId in the registry. Async handoff and the timeout timer call
+ * requestPause to continue the command asynchronously. */
 export interface ForegroundSlot {
     requestPause: (reason: BackgroundReason) => void;
 }

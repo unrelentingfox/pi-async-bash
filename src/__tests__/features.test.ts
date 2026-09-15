@@ -3,7 +3,7 @@
  *   - jobs.search 정규식 검색
  *   - jobs.cleanup 종료된 잡 일괄 제거
  *   - jobs.stats 집계 메트릭
- *   - bash_bg의 --name 라벨
+ *   - bash_async의 --name 라벨
  *
  * 툴의 register 함수를 직접 호출하지 않고, registry + 포맷터 수준의
  * 단위 테스트로 동작을 검증한다.
@@ -41,7 +41,7 @@ function makeJob(overrides: Partial<Job> = {}): Job {
     };
 }
 
-void describe("bash_bg --name 라벨", () => {
+void describe("bash_async --name 라벨", () => {
     void it("formatJobLine은 이름 있는 잡에 대해 'name (job-id)' 헤더 사용", () => {
         const job = makeJob({ id: "job-1", name: "build" });
         const line = formatJobLine(job);

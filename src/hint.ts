@@ -1,5 +1,5 @@
 /**
- * Live "(ctrl+shift+b to run in background)" hint shown below the editor while
+ * Live "(/bash-async to run asynchronously)" hint shown below the editor while
  * a foreground bash command is running — mirrors Claude Code's BackgroundHint,
  * which appears once a command has run past the quick-completion window.
  */
@@ -17,11 +17,11 @@ const HINT_KEY = "bg-hint";
  */
 let activeHints = 0;
 
-/** Show the background hint below the editor (idempotent across parallel commands). */
+/** Show the async handoff hint below the editor (idempotent across parallel commands). */
 export function showBackgroundHint(ctx: UiContext): void {
     activeHints++;
     if (activeHints === 1) {
-        ctx.ui.setWidget(HINT_KEY, ["(ctrl+shift+b to run in background)"], {
+        ctx.ui.setWidget(HINT_KEY, ["(/bash-async to run asynchronously)"], {
             placement: "belowEditor",
         });
     }

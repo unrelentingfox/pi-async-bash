@@ -34,10 +34,9 @@ function makeJob(overrides: Partial<Job> = {}): Job {
 }
 
 void describe("newJobId", () => {
-    void it("kind prefix + 8 random base36 chars (CC's typed task ids)", () => {
-        assert.match(newJobId("shell"), /^b[0-9a-z]{8}$/);
-        assert.match(newJobId("monitor"), /^m[0-9a-z]{8}$/);
-        assert.match(newJobId("agent"), /^a[0-9a-z]{8}$/);
+    void it("includes a kind prefix, spawning process ID, and random suffix", () => {
+        assert.match(newJobId("shell"), new RegExp(`^b${process.pid}-[0-9a-z]{8}$`));
+        assert.match(newJobId("monitor"), new RegExp(`^m${process.pid}-[0-9a-z]{8}$`));
     });
     void it("random — consecutive ids differ", () => {
         assert.notEqual(newJobId("shell"), newJobId("shell"));

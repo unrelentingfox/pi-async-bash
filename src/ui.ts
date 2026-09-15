@@ -1,5 +1,5 @@
 /**
- * Background tasks TUI panel — the /bg-list interactive manager.
+ * Async Bash task manager for `/bash-async-list`.
  *
  * Uses Pi's ctx.ui.select()/ctx.ui.editor() primitives (available in both
  * command and shortcut contexts) to provide Claude Code-style job management:

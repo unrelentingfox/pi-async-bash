@@ -2,10 +2,10 @@
  * `bash` tool override.
  *
  * Single file-descriptor backend (no tmux):
- *   - run_in_background=true spawns immediately and returns a job handle
- *   - foreground commands race completion against backgrounding
- *   - a 2s quick-completion window skips the backgrounding machinery
- *   - Ctrl+Shift+B (manual) or the timeout timer move a command to background
+ *   - run_async=true starts asynchronous execution and returns a job handle
+ *   - foreground commands race completion against asynchronous handoff
+ *   - a 2s quick-completion window skips handoff machinery
+ *   - `/bash-async`, cooperative input, or the timeout timer move a command to async execution
  */
 
 import type {
@@ -62,17 +62,17 @@ export function registerBashTool(
         ...originalBash,
         name: "bash",
         description:
-            "Run a bash command. Long-running commands auto-background after timeout. " +
-            "Set run_in_background=true to start in background immediately. " +
-            "Use /bg to manually background a running command.",
+            "Run a Bash command. Long-running commands continue asynchronously after timeout. " +
+            "Set run_async=true to start asynchronously immediately. " +
+            "Use /bash-async to hand off a running command.",
         promptSnippet:
-            "Run shell commands; long-running commands auto-background or use run_in_background=true",
+            "Run shell commands; long-running commands continue asynchronously or use run_async=true",
         promptGuidelines: [
-            "Use bash with run_in_background=true when a command is expected to run for a long time.",
-            "run_in_background is for ONE notification (the command exits when done). For per-event streaming (watching logs, polling an API, file changes), use the monitor tool instead.",
-            "Never `sleep N` to wait for something — the job lingers for the full sleep. Wait on a background job with jobs action='attach', watch with the monitor tool, or poll with an `until` loop that exits when ready.",
-            "Check background job status with jobs action='list'.",
-            "Read background output with jobs action='output'.",
+            "Use bash with run_async=true when a command is expected to run for a long time.",
+            "run_async is for ONE notification (the command exits when done). For per-event streaming (watching logs, polling an API, file changes), use the bash_async_watch tool instead.",
+            "Never `sleep N` to wait for something — the job lingers for the full sleep. Wait on a background job with bash_async_list action='attach', watch with the bash_async_watch tool, or poll with an `until` loop that exits when ready.",
+            "Check background job status with bash_async_list action='list'.",
+            "Read background output with bash_async_list action='output'.",
         ],
         parameters: bashParamSchema,
 
@@ -80,7 +80,7 @@ export function registerBashTool(
             const p = params as {
                 command: string;
                 timeout?: number;
-                run_in_background?: boolean;
+                run_async?: boolean;
                 description?: string;
             };
             const bashCtx = ctx as BashCtx;
@@ -96,7 +96,7 @@ export function registerBashTool(
             assertJobSlot(reg);
 
             // Explicit background mode — spawn and return immediately.
-            if (p.run_in_background) {
+            if (p.run_async) {
                 return spawnBackground({
                     toolCallId,
                     command: p.command,
@@ -151,7 +151,7 @@ async function runForeground(args: {
         logPath,
     });
 
-    // Register the foreground slot so Ctrl+Shift+B can find this command.
+    // Register the foreground slot so `/bash-async` can find this command.
     let pauseRequested = false;
     let handedToBackground = false;
     let pauseResolve: ((reason: "manual" | "timeout") => void) | null = null;
@@ -166,9 +166,8 @@ async function runForeground(args: {
     // Claude Code parity for the turn's abort signal:
     //   - No pause requested  → a genuine cancel (Esc / 'user-cancel'): kill the
     //     process group, like CC's ShellCommand.#abortHandler.
-    //   - Pause already requested → cooperative steering / Ctrl+Shift+B / auto-bg
-    //     timeout moving the command to the background: leave it running (this is
-    //     CC's 'interrupt' / background path, which never kills).
+    //   - Pause already requested → cooperative input, `/bash-async`, or timeout
+    //     moving the command to async execution: leave it running.
     // Long-running work is protected the CC way — by auto-backgrounding at the
     // timeout — not by refusing to honor a deliberate cancel.
     const onTurnAbort = () => {
@@ -190,12 +189,12 @@ async function runForeground(args: {
         toolCallId,
         isBackgrounded: false,
     });
-    // Foreground jobs are tracked for the sidebar / Ctrl+Shift+B but not counted
-    // as "started" until they actually move to the background (see below).
+    // Foreground jobs are tracked for the sidebar and async handoff but are not
+    // counted as started until they become asynchronous.
     reg.jobs.set(id, job);
 
-    // Promote the running command to a tracked background job (cooperative
-    // steering / Ctrl+Shift+B / auto-bg timeout). Idempotent.
+    // Promote the running command to an asynchronous job (cooperative input,
+    // `/bash-async`, or timeout). Idempotent.
     const promoteToBackground = () => {
         if (handedToBackground) return;
         handedToBackground = true;
@@ -264,8 +263,8 @@ async function runForeground(args: {
             return finishForeground(quickResult);
         }
 
-        // Still running past the quick window — start progress polling and show
-        // the "(ctrl+shift+b to run in background)" hint, like Claude Code.
+        // Still running past the quick window — stream progress and show the
+        // `/bash-async` handoff hint.
         progressPoller = streamLog(logPath, onUpdate);
         showBackgroundHint(ctx);
         hintShown = true;
@@ -285,8 +284,8 @@ async function runForeground(args: {
             // manual background, one generic line for the timeout path.
             const text =
                 race.reason === "manual"
-                    ? `Command was manually backgrounded by user with ID: ${id}. Output is being written to: ${logPath}`
-                    : `Command running in background with ID: ${id}. Output is being written to: ${logPath}`;
+                    ? `Command was moved to async execution with ID: ${id}. Output is being written to: ${logPath}`
+                    : `Command running asynchronously with ID: ${id}. Output is being written to: ${logPath}`;
             return { content: [textBlock(text)], details: undefined };
         }
 
@@ -338,7 +337,7 @@ function spawnBackground(args: {
     return {
         content: [
             textBlock(
-                `Command running in background with ID: ${id}. Output is being written to: ${logPath}`
+                `Command running asynchronously with ID: ${id}. Output is being written to: ${logPath}`
             ),
         ],
         details: undefined,

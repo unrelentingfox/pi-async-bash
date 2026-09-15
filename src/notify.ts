@@ -10,7 +10,7 @@
  *
  * Exactly-once is enforced by the job's `notified` latch — a check-and-set
  * done BEFORE the send, so any path that already surfaced the outcome (a
- * jobs output/attach read, a deliberate kill) suppresses the notification.
+ * bash_async_list output/attach read, a deliberate kill) suppresses the notification.
  * A terminal job that has been notified is evicted from the live registry;
  * its output log stays on disk and the notification carries the path.
  */
@@ -66,23 +66,16 @@ export function completionSummary(job: Job, status?: TerminalStatus): string {
         if (s === "failed") return `Monitor "${desc}" script failed (exit ${job.exitCode ?? "unknown"})`;
         return `Monitor "${desc}" stream ended`;
     }
-    if (job.kind === "agent") {
-        if (s === "killed") return `Agent "${desc}" was stopped`;
-        if (s === "failed") {
-            return `Agent "${desc}" failed: ${job.exitCode !== undefined ? `exit code ${job.exitCode}` : "unknown error"}`;
-        }
-        return `Agent "${desc}" completed`;
-    }
-    if (s === "killed") return `Background command "${desc}" was stopped`;
-    if (s === "failed") return `Background command "${desc}" failed with exit code ${job.exitCode ?? "unknown"}`;
-    return `Background command "${desc}" completed${job.exitCode != null ? ` (exit code ${job.exitCode})` : ""}`;
+    if (s === "killed") return `Async command "${desc}" was stopped`;
+    if (s === "failed") return `Async command "${desc}" failed with exit code ${job.exitCode ?? "unknown"}`;
+    return `Async command "${desc}" completed${job.exitCode != null ? ` (exit code ${job.exitCode})` : ""}`;
 }
 
 /**
  * Set the notified latch (Claude Code's markTaskNotified). Idempotent. Called
  * by every path that surfaces a job's outcome WITHOUT the notification: kill
  * paths (before the kill, so the exit handler skips notifying) and terminal
- * reads (jobs output / attach).
+ * reads (bash_async_list output / attach).
  */
 export function markNotified(job: Job): void {
     job.notified = true;
@@ -93,7 +86,7 @@ export function markNotified(job: Job): void {
  * BEFORE the send, so a concurrent consumer can never produce a duplicate;
  * if the send itself throws, the notification is lost rather than retried
  * (exactly-once), and the terminal+notified job lingers until the lazy sweep
- * in `jobs list`.
+ * in `bash_async_list list`.
  *
  * On success the job is evicted from the live registry (terminal + notified)
  * unless `evict: false` — the monitor path sends before the job is marked

@@ -58,7 +58,7 @@ void describe("detectBlockedSleep — naive-wait detection", () => {
     });
 });
 
-void describe("bash_bg — rejects a backgrounded sleep wait", () => {
+void describe("bash_async — rejects a backgrounded sleep wait", () => {
     function bashBg() {
         let tool: { execute: (id: string, p: unknown, s: unknown, u: unknown, c: unknown) => Promise<unknown> } | undefined;
         const pi = { registerTool: (def: typeof tool) => { tool = def; }, sendMessage() {} };
@@ -70,11 +70,11 @@ void describe("bash_bg — rejects a backgrounded sleep wait", () => {
         return { tool: tool!, ctx };
     }
 
-    void it("blocks an embedded sleep in bash_bg (previously unguarded)", async () => {
+    void it("blocks an embedded sleep in bash_async (previously unguarded)", async () => {
         const { tool, ctx } = bashBg();
         await assert.rejects(
             () => tool.execute("t1", { command: "cd /repo; sleep 600; cat log" }, undefined, undefined, ctx),
-            /Blocked: sleep 600.*jobs action='attach'/s
+            /Blocked: sleep 600.*bash_async_list action='attach'/s
         );
     });
 

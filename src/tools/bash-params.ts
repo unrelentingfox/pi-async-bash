@@ -9,7 +9,7 @@ export const bashParamSchema = Type.Object({
     timeout: Type.Optional(
         Type.Number({ description: "Timeout in seconds (default: 120)" })
     ),
-    run_in_background: Type.Optional(
+    run_async: Type.Optional(
         Type.Boolean({
             description:
                 "Set to true to run this command in the background immediately. " +

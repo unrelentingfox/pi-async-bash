@@ -37,25 +37,25 @@ function withTmux(value: string | undefined, fn: () => void): void {
     }
 }
 
-void describe("background hint", () => {
-    void it("shows a ctrl+shift+b hint below the editor", () => {
+void describe("async handoff hint", () => {
+    void it("shows the async handoff command below the editor", () => {
         withTmux(undefined, () => {
             const { calls, ctx } = makeCtx();
             showBackgroundHint(ctx);
             assert.equal(calls.length, 1);
             assert.equal(calls[0].options?.placement, "belowEditor");
             const line = calls[0].content?.[0] ?? "";
-            assert.match(line, /ctrl\+shift\+b to run in background/);
+            assert.match(line, /\/bash-async to run asynchronously/);
             clearBackgroundHint(ctx); // balance the ref-count
         });
     });
 
-    void it("shows the same hint inside tmux (no double-press note)", () => {
+    void it("shows the same command inside tmux", () => {
         withTmux("/tmp/tmux-1/default,123,0", () => {
             const { calls, ctx } = makeCtx();
             showBackgroundHint(ctx);
             const line = calls[0].content?.[0] ?? "";
-            assert.match(line, /ctrl\+shift\+b to run in background/);
+            assert.match(line, /\/bash-async to run asynchronously/);
             assert.ok(!/twice/.test(line));
             clearBackgroundHint(ctx);
         });

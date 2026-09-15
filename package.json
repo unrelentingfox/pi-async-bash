@@ -1,54 +1,57 @@
 {
-    "name": "pi-patty-bg-tasks",
-    "version": "2.0.0",
-    "description": "Background tasks extension for pi. Claude Code parity — auto-background after 120s, run_in_background flag, Ctrl+Shift+B manual background with live hint, mid-turn <task-notification> completion messages, streaming jobs attach, file-fd output capture, cooperative steering, agent_bg with progress streaming, and a monitor tool for per-event streaming (stdout lines / WebSocket frames).",
-    "type": "module",
-    "keywords": [
-        "pi-package",
-        "pi-extension",
-        "background-tasks",
-        "bash-bg",
-        "agent-bg",
-        "monitor"
-    ],
-    "author": "Patrick Rho",
-    "license": "MIT",
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/patty-io/pi-patty-bg-tasks.git"
-    },
-    "files": [
-        "src/",
-        "!src/__tests__/**",
-        "index.ts",
-        "README.md",
-        "README.ko.md",
-        "README.zh.md"
-    ],
-    "pi": {
-        "extensions": [
-            "./index.ts"
-        ]
-    },
-    "publishConfig": {
-        "access": "public"
-    },
-    "scripts": {
-        "test": "node --experimental-strip-types --test --test-force-exit 'src/__tests__/*.test.ts'",
-        "check": "tsc --noEmit"
-    },
-    "peerDependencies": {
-        "@earendil-works/pi-agent-core": ">=0.79.0",
-        "@earendil-works/pi-ai": ">=0.79.0",
-        "@earendil-works/pi-coding-agent": ">=0.79.0"
-    },
-    "devDependencies": {
-        "@earendil-works/pi-agent-core": "^0.83.0",
-        "@earendil-works/pi-ai": "^0.83.0",
-        "@earendil-works/pi-coding-agent": "^0.83.0",
-        "@types/node": "25.6.2",
-        "typebox": "^1.1.24",
-        "typescript": "6.0.3"
-    },
-    "packageManager": "pnpm@10.33.1"
+  "name": "pi-async-bash",
+  "version": "0.1.0",
+  "description": "Asynchronous Bash tools for Pi: foreground Bash handoff, async jobs, event watches, and task management.",
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "async",
+    "bash",
+    "background-jobs",
+    "monitoring"
+  ],
+  "author": "Dustin Fox",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/unrelentingfox/pi-async-bash.git"
+  },
+  "files": [
+    "src/",
+    "!src/__tests__/**",
+    "index.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test --test-force-exit 'src/__tests__/*.test.ts'",
+    "check": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-agent-core": ">=0.79.0",
+    "@earendil-works/pi-ai": ">=0.79.0",
+    "@earendil-works/pi-coding-agent": ">=0.79.0"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-agent-core": "^0.83.0",
+    "@earendil-works/pi-ai": "^0.83.0",
+    "@earendil-works/pi-coding-agent": "^0.83.0",
+    "@types/node": "25.6.2",
+    "typebox": "^1.1.24",
+    "typescript": "6.0.3"
+  },
+  "packageManager": "pnpm@10.33.1",
+  "bugs": {
+    "url": "https://github.com/unrelentingfox/pi-async-bash/issues"
+  },
+  "homepage": "https://github.com/unrelentingfox/pi-async-bash#readme"
 }

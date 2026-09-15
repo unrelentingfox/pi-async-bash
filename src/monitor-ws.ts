@@ -1,5 +1,5 @@
 /**
- * WebSocket source for the monitor tool.
+ * WebSocket source for the bash_async_watch tool.
  *
  * A ws monitor has no child process. Instead of spawning, it opens a WebSocket
  * and appends each incoming frame as a line to the same `<jobId>.log` the

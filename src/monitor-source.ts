@@ -16,7 +16,7 @@ export interface MonitorSource {
     logPath: string;
     /** OS pid backing the source, or 0 when there is no process (ws). */
     pid: number;
-    /** Human-readable label shown in the sidebar / jobs list. */
+    /** Human-readable label shown in the sidebar / bash_async_list list. */
     label: string;
     /** Resolves when the source ends (process exit, or ws close as code-only). */
     exit: Promise<SpawnExit>;

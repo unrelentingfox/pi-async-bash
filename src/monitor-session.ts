@@ -1,5 +1,5 @@
 /**
- * The monitor session lifecycle — the tricky part of the monitor tool, lifted
+ * The monitor session lifecycle — the tricky part of the bash_async_watch tool, lifted
  * out of the tool action so its invariants are unit-testable through a fake
  * MonitorSource (no real spawning, no real sockets).
  *

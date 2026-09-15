@@ -48,7 +48,7 @@ function makeHarness() {
     return { tool: tool!, reg, ctx, messages, pi };
 }
 
-void describe("monitor tool — validation", () => {
+void describe("bash_async_watch tool — validation", () => {
     void it("rejects when neither command nor ws is given", async () => {
         const { tool, ctx } = makeHarness();
         await assert.rejects(
@@ -81,7 +81,7 @@ void describe("monitor tool — validation", () => {
     });
 });
 
-void describe("monitor tool — command lifecycle", () => {
+void describe("bash_async_watch tool — command lifecycle", () => {
     void it("streams lines live, and sends one terminal <task-notification>", async () => {
         const { tool, ctx, messages } = makeHarness();
         const res = await tool.execute(
@@ -91,7 +91,7 @@ void describe("monitor tool — command lifecycle", () => {
             undefined,
             ctx
         );
-        assert.match(res.content[0].text, /Monitor m[0-9a-z]{8} started/);
+        assert.match(res.content[0].text, /Monitor m[0-9]+-[0-9a-z]{8} started/);
 
         await sleep(300); // let the source exit + terminal notify
 

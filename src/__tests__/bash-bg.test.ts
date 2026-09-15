@@ -1,5 +1,5 @@
 /**
- * `bash_bg` tool — timeout kill must be loud: a log marker plus a killed
+ * `bash_async` tool — timeout kill must be loud: a log marker plus a killed
  * <task-notification>, mirroring the foreground bash timeout path (the agent
  * must learn its command was timeout-killed).
  */
@@ -49,7 +49,7 @@ function harness() {
     return { tool: tool!, reg, ctx, messages };
 }
 
-void describe("bash_bg — timeout kill is loud", () => {
+void describe("bash_async — timeout kill is loud", () => {
     void it("marks the log AND sends a killed <task-notification>", async () => {
         const { tool, ctx, messages } = harness();
         // `sleep` is excluded from auto-backgrounding, and a float duration

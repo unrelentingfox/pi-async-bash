@@ -52,11 +52,11 @@ function onlyJob(reg: BackgroundRegistry): Job {
 void describe("bash tool — Claude Code tool-result strings", () => {
     const spawnedPids: number[] = [];
 
-    void it("run_in_background returns the generic CC string (no Name fragment)", async () => {
+    void it("run_async returns the generic CC string (no Name fragment)", async () => {
         const { tool, reg, ctx } = harness();
         const res = await tool.execute(
             "t1",
-            { command: "tail -f /dev/null", run_in_background: true, description: "my job" },
+            { command: "tail -f /dev/null", run_async: true, description: "my job" },
             undefined,
             undefined,
             ctx
@@ -65,7 +65,7 @@ void describe("bash tool — Claude Code tool-result strings", () => {
         spawnedPids.push(job.pid);
         assert.equal(
             res.content[0].text,
-            `Command running in background with ID: ${job.id}. Output is being written to: ${job.logPath}`
+            `Command running asynchronously with ID: ${job.id}. Output is being written to: ${job.logPath}`
         );
     });
 
@@ -85,7 +85,7 @@ void describe("bash tool — Claude Code tool-result strings", () => {
         spawnedPids.push(job.pid);
         assert.equal(
             res.content[0].text,
-            `Command was manually backgrounded by user with ID: ${job.id}. Output is being written to: ${job.logPath}`
+            `Command was moved to async execution with ID: ${job.id}. Output is being written to: ${job.logPath}`
         );
     });
 
@@ -102,7 +102,7 @@ void describe("bash tool — Claude Code tool-result strings", () => {
         spawnedPids.push(job.pid);
         assert.equal(
             res.content[0].text,
-            `Command running in background with ID: ${job.id}. Output is being written to: ${job.logPath}`
+            `Command running asynchronously with ID: ${job.id}. Output is being written to: ${job.logPath}`
         );
     });
 
@@ -124,7 +124,7 @@ void describe("bash tool — Claude Code tool-result strings", () => {
         const { tool, reg, ctx, messages } = harness();
         await tool.execute(
             "t5",
-            { command: "tail -f /dev/null", run_in_background: true },
+            { command: "tail -f /dev/null", run_async: true },
             undefined,
             undefined,
             ctx

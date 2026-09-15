@@ -27,11 +27,8 @@ import { readBoundedTail, readLastLine } from "./output.ts";
 const ID_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyz";
 
 /**
- * Claude Code's typed task ids: a one-letter kind prefix (b/m/a) plus 8 random
- * base36 chars from crypto.randomInt (uniform — no modulo bias) — e.g.
- * `b7f3k9a2x1`. Random (not sequential) so an id is unguessable and
- * collision-improbable across sessions; when the live registry is passed, a
- * collision simply regenerates.
+ * Typed task ids: a one-letter kind prefix, spawning process identifier, and
+ * eight random base36 characters (for example, `b1234-7f3k9a2x`).
  */
 export function newJobId(kind: JobKind, reg?: BackgroundRegistry): string {
     let id: string;
@@ -40,7 +37,7 @@ export function newJobId(kind: JobKind, reg?: BackgroundRegistry): string {
         for (let i = 0; i < 8; i++) {
             suffix += ID_ALPHABET[randomInt(0, ID_ALPHABET.length)];
         }
-        id = `${JOB_ID_PREFIX[kind]}${suffix}`;
+        id = `${JOB_ID_PREFIX[kind]}${process.pid}-${suffix}`;
     } while (reg?.jobs.has(id));
     return id;
 }
@@ -61,8 +58,8 @@ export function errPathFor(jobId: string): string {
 
 /**
  * Build a fresh running Job. Centralizes the Job shape so the new `kind`/`stop`
- * fields (and any future additions) don't drift across the bash/bash_bg/
- * agent_bg/monitor construction sites.
+ * fields (and any future additions) don't drift across the bash/bash_async/
+ * bash_async_watch construction sites.
  */
 export function createRunningJob(args: {
     id: string;

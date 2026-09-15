@@ -2,7 +2,7 @@
 //
 // `monitor` tool — a streaming-event background watch. Each stdout line (or
 // WebSocket text frame) becomes one notification delivered into the agent's
-// turn. This is distinct from bash_bg/run_in_background (one notification on
+// turn. This is distinct from bash_async/run_async (one notification on
 // completion): monitor is for per-event streams (tail -f | grep, poll loops,
 // file watches, ws feeds), not one-shot "wait until done".
 
@@ -37,23 +37,23 @@ interface MonitorParams {
 
 export function registerMonitorTool(pi: ExtensionAPI, reg: BackgroundRegistry): void {
     pi.registerTool({
-        name: "monitor",
+        name: "bash_async_watch",
         label: "Monitor",
         description:
             "Stream events from a long-running process: each stdout line (or WebSocket " +
             "text frame) becomes one notification, delivered while you keep working. " +
             "Use this for per-event streams — NOT for one-shot 'wait until done' (use " +
-            "bash run_in_background for that). Exit ends the watch.",
+            "bash run_async for that). Exit ends the watch.",
         promptSnippet:
             "Stream per-event notifications from a process, log, poll loop, or WebSocket",
         promptGuidelines: [
-            "Pick by notification count: ONE ('tell me when done') → bash run_in_background with an `until` loop that exits; ONE-PER-EVENT → monitor.",
+            "Pick by notification count: ONE ('tell me when done') → bash run_async with an `until` loop that exits; ONE-PER-EVENT → bash_async_watch.",
             "Don't use an unbounded command (tail -f, while true, inotifywait -m) for a single notification — it never exits and stays armed until timeout.",
             "Every pipe stage must flush per line: grep needs --line-buffered, awk needs fflush(); never pipe to `head` (it buffers until N matches).",
             "Silence is not success: your filter must match failure signatures too (e.g. grep -E --line-buffered 'done|Traceback|Error|FAILED|Killed|OOM'), or a crash looks identical to 'still running'.",
             "Only stdout is the event stream; merge stderr with 2>&1 if its failures should notify. Poll remote APIs at 30s+, local checks at 0.5–1s, and guard transient failures with `|| true`.",
             "Give a specific description — it is shown on every notification.",
-            "Use persistent:true for session-length watches (PR monitoring, log tails); stop it with the jobs tool (action='kill').",
+            "Use persistent:true for session-length watches (PR monitoring, log tails); stop it with the bash_async_list tool (action='kill').",
             "Use the ws source for a WebSocket feed instead of `command: 'websocat …'` — each text frame becomes one event.",
         ],
         parameters: Type.Object({
@@ -71,7 +71,7 @@ export function registerMonitorTool(pi: ExtensionAPI, reg: BackgroundRegistry): 
             ),
             description: Type.String({ description: "Specific description, shown on every notification." }),
             persistent: Type.Optional(
-                Type.Boolean({ description: "Run for the whole session (no timeout). Stop via jobs action='kill'. Default false." })
+                Type.Boolean({ description: "Run for the whole session (no timeout). Stop via bash_async_list action='kill'. Default false." })
             ),
             timeout_ms: Type.Optional(
                 Type.Number({ description: "Kill after this deadline (default 300000, max 3600000). Ignored when persistent." })
@@ -148,7 +148,7 @@ export function registerMonitorTool(pi: ExtensionAPI, reg: BackgroundRegistry): 
 
             const sourceDesc = hasWs ? `WebSocket ${p.ws!.url}` : "command";
             const deadlineDesc = persistent
-                ? "persistent (stop via jobs action='kill')"
+                ? "persistent (stop via bash_async_list action='kill')"
                 : `timeout ${Math.round(timeoutMs / 1000)}s`;
             return {
                 content: [

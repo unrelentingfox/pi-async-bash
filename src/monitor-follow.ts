@@ -1,5 +1,5 @@
 /**
- * Line-accurate tail follower for the monitor tool.
+ * Line-accurate tail follower for the bash_async_watch tool.
  *
  * Unlike output.ts/pollFileTail (a bounded 4 KB tail deduped by content, fine
  * for progress display but lossy under bursts), this follower tracks a byte

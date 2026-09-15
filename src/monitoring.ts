@@ -33,7 +33,7 @@ import { describeJob } from "./format.ts";
 export function watchStalls(args: {
     jobId: string;
     command: string;
-    /** Job name (bash/bash_bg `description`); falls back to the command. */
+    /** Job name (bash/bash_async `description`); falls back to the command. */
     name?: string;
     logPath: string;
     pi: ExtensionAPI;
@@ -151,7 +151,7 @@ function sendStallPrompt(
     logPath: string,
     tail: string
 ): void {
-    const summary = `Background command "${description}" appears to be waiting for interactive input`;
+    const summary = `Async command "${description}" appears to be waiting for interactive input`;
     const content =
         buildTaskNotification({ taskId: jobId, outputFile: logPath, summary }) +
         `\nLast output:\n${tail.trimEnd()}\n\n` +

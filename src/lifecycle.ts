@@ -6,7 +6,10 @@
  * Monitoring (progress polling, stall detection) lives in monitoring.ts.
  */
 
+import { readFileSync } from "node:fs";
 import { statSync as fsStatSync } from "node:fs";
+import { readdir, stat, unlink } from "node:fs/promises";
+import { join as pathJoin } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import {
     isTerminalStatus,
@@ -17,7 +20,7 @@ import {
 } from "./types.ts";
 import type { BackgroundRegistry } from "./state.ts";
 import { killProcessTree, type SpawnExit } from "./spawn.ts";
-import { atConcurrencyLimit, forget, renderSidebar } from "./registry.ts";
+import { atConcurrencyLimit, forget, LOG_DIR, renderSidebar } from "./registry.ts";
 import { watchStalls } from "./monitoring.ts";
 import { markNotified, sendTaskNotification } from "./notify.ts";
 
@@ -37,7 +40,7 @@ export function assertJobSlot(reg: BackgroundRegistry): void {
  * Wire a background job's lifecycle: completion promise, abort controller,
  * stall watcher, and the exit→completeJob hand-off. The job must already be in
  * the registry. Returns the job's AbortController so callers can attach extra
- * monitors (e.g. agent_bg's progress poller).
+ * monitoring or timeout cleanup.
  */
 export function startBackgroundJob(args: {
     reg: BackgroundRegistry;
@@ -88,15 +91,15 @@ export function startBackgroundJob(args: {
 /**
  * Standard completion flow after a job exits — abortJob → markTerminal →
  * notify → renderSidebar. Shared by every tool's exit callback (bash,
- * bash_bg, agent_bg, monitor) as the canonical termination protocol.
+ * bash_async, and bash_async_watch as the canonical termination protocol.
  *
  * The notification is Claude Code's per-job <task-notification>, sent the
  * moment the job exits (see notify.ts). A successful send evicts the job
  * from the live registry (terminal + notified). Jobs whose outcome is
- * already known (killed silently, or read via jobs output/attach) skip the
- * notification and linger until the lazy sweep in `jobs list`. Monitors own
+ * already known (killed silently, or read via bash_async_list output/attach) skip the
+ * notification and linger until the lazy sweep in `bash_async_list list`. Monitors own
  * their terminal notification (monitor-session, shouldNotify: false) and are
- * evicted here once it has fired. A `shouldNotify: false` job (bash_bg
+ * evicted here once it has fired. A `shouldNotify: false` job (bash_async
  * `notify: false`) is latched notified WITHOUT sending — "don't notify" IS
  * notified — so it evicts too and never lingers as a permanent entry.
  */
@@ -233,7 +236,7 @@ export function terminateJob(job: Job): void {
 
 // --- Foreground backgrounding --------------------------------------------
 
-/** Richer context for Ctrl+Shift+B / `/bg`: the UI plus the turn-control surface
+/** Richer context for `/bash-async`: the UI plus the turn-control surface
  *  (idle check and whether a user message is already queued). */
 export type ControlContext = UiContext & {
     isIdle(): boolean;
@@ -269,12 +272,11 @@ export function backgroundActiveForeground(
     return true;
 }
 
-/** Outcome of a Ctrl+Shift+B / `/bg` control-handover. */
+/** Outcome of `/bash-async` control handover. */
 export type ControlOutcome = "backgrounded" | "queued" | "nothing";
 
 /**
- * Claude Code's Ctrl+B, faithfully (on Ctrl+Shift+B here, since pi owns
- * Ctrl+B): background ALL running foreground commands (CC's `backgroundAll`).
+ * `/bash-async` backgrounds all running foreground commands.
  *
  * It deliberately does NOT call ctx.abort(): in pi, aborting restores any queued
  * message to the editor (unsent), renders a scary "Operation aborted", AND kills
@@ -336,9 +338,9 @@ export function isAutoBackgroundAllowed(command: string): boolean {
 export const SLEEP_WAIT_GUIDANCE =
     "A fixed `sleep N` to wait wastes time and leaves a job lingering for the " +
     "full duration. Instead:\n" +
-    "• Waiting on a background job you started? Use jobs action='attach' — it " +
+    "• Waiting on a background job you started? Use bash_async_list action='attach' — it " +
     "returns as soon as that job finishes.\n" +
-    "• Waiting for a condition? Use the monitor tool, or a poll loop that EXITS " +
+    "• Waiting for a condition? Use the bash_async_watch tool, or a poll loop that EXITS " +
     "when ready (e.g. `until grep -q READY log; do sleep 0.5; done`).\n" +
     "• Just pacing/rate-limiting? Keep it under 2 seconds.";
 
@@ -389,7 +391,54 @@ export function detectBlockedSleep(command: string): string | null {
     return null;
 }
 
-// --- Non-interactive mode detection --------------------------------------
+// --- Reload continuity ---------------------------------------------------
+
+/**
+ * Restore only jobs started by this Pi process. A reloaded extension can safely
+ * manage those process groups; a new Pi process must never signal a reused PID.
+ */
+export function reviveAndValidate(job: Job): "alive" | "terminal" {
+    if (isTerminalStatus(job.status)) return "terminal";
+    const spawningPid = Number.parseInt(job.id.slice(1, job.id.indexOf("-")), 10);
+    if (spawningPid !== process.pid) {
+        markTerminal(job, "failed");
+        return "terminal";
+    }
+    try {
+        process.kill(job.pid, 0);
+        return "alive";
+    } catch {
+        markTerminal(job, "failed");
+        return "terminal";
+    }
+}
+
+/** Remove stale log files older than 24 hours without delaying startup. */
+export async function cleanupStaleRuntimeArtifacts(): Promise<void> {
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    let entries: string[];
+    try {
+        entries = await readdir(LOG_DIR);
+    } catch {
+        return;
+    }
+    await Promise.all(entries.map(async (entry) => {
+        const path = pathJoin(LOG_DIR, entry);
+        try {
+            if ((await stat(path)).mtimeMs < cutoff) await unlink(path);
+        } catch {
+            // Files may disappear while the asynchronous cleanup runs.
+        }
+    }));
+}
+
+/** Serialize only data that can be safely restored after a same-process reload. */
+export function serializeJobs(
+    jobs: Iterable<Job>,
+): Array<Omit<Job, "proc" | "donePromise" | "resolveDone" | "stop">> {
+    return Array.from(jobs, ({ proc: _proc, donePromise: _done, resolveDone: _resolve, stop: _stop, ...job }) => job);
+}
+
 
 /** Detect whether pi is running non-interactively (print / non-TTY). */
 export function detectNonInteractive(

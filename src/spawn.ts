@@ -22,9 +22,9 @@ export interface SpawnResult {
  * Claude Code pattern: the kernel writes output to disk with zero JS in the
  * data path. Progress is read back by polling the file tail separately.
  *
- * Pass `command` to run `bash -c <command>`, or `file`/`fileArgs` to exec a
- * binary directly (e.g. agent_bg launching `pi -p`). The child is detached so
- * the whole process group can be signalled.
+ * Pass `command` to run `bash -c <command>`, or `file` and `fileArgs` to run a
+ * binary directly. The child is detached so the whole process group can be
+ * signalled.
  */
 export function spawnWithFileOutput(args: {
     command?: string;
@@ -33,7 +33,7 @@ export function spawnWithFileOutput(args: {
     cwd: string;
     logPath: string;
     /** When set, stderr is written here instead of merged into logPath. Used by
-     *  the monitor tool so stdout is a clean event stream and stderr is captured
+     *  the bash_async_watch tool so stdout is a clean event stream and stderr is captured
      *  separately (readable, but never emitted as an event). */
     errPath?: string;
     signal?: AbortSignal;

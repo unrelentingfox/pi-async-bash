@@ -101,7 +101,7 @@ void describe("watchStalls — 45s latch (fake timers)", () => {
             "<task-notification>",
             "<task_id>job-1</task_id>",
             `<output_file>${logPath}</output_file>`,
-            `<summary>Background command "npm install" appears to be waiting for interactive input</summary>`,
+            `<summary>Async command "npm install" appears to be waiting for interactive input</summary>`,
             "</task-notification>",
         ].join("\n");
         assert.ok(content.startsWith(expectedHead), `content starts with the XML block:\n${content}`);
@@ -137,7 +137,7 @@ void describe("watchStalls — 45s latch (fake timers)", () => {
 
         advance(STALL_THRESHOLD_MS + STALL_CHECK_INTERVAL_MS);
         assert.equal(sent.length, 1);
-        assert.ok((sent[0].content ?? "").includes('Background command "copy-config"'));
+        assert.ok((sent[0].content ?? "").includes('Async command "copy-config"'));
         cancel();
     });
 

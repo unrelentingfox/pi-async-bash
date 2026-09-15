@@ -1,7 +1,7 @@
 /**
  * Streaming log search service.
  *
- * The jobs tool owns parameter parsing and result formatting; this module owns
+ * The bash_async_list tool owns parameter parsing and result formatting; this module owns
  * full-log scanning, match counting, bounded display-hit retention, and the
  * tail fallback used when the log file cannot be streamed line-by-line.
  */

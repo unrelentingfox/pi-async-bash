@@ -1,7 +1,7 @@
 /**
  * `jobs` tool actions — kill result strings (CC's TaskStopTool), unknown-id
  * errors, read-marks-notified (CC's TaskOutputTool), and the lazy eviction
- * sweep in `jobs list`.
+ * sweep in `bash_async_list list`.
  */
 
 import { describe, it } from "node:test";
@@ -97,7 +97,7 @@ void describe("jobs kill — CC's TaskStopTool", () => {
     });
 });
 
-void describe("jobs output — read-marks-notified", () => {
+void describe("bash_async_list output — read-marks-notified", () => {
     void it("marks a terminal job notified on read", async () => {
         const { tool, reg, ctx } = harness();
         const job = mkJob(reg, { id: `job-${process.pid}-o1` });
@@ -123,7 +123,7 @@ void describe("jobs output — read-marks-notified", () => {
     });
 });
 
-void describe("jobs list — lazy sweep", () => {
+void describe("bash_async_list list — lazy sweep", () => {
     void it("sweeps terminal+notified jobs into the recent-terminal ring", async () => {
         const { tool, reg, ctx } = harness();
         const running = mkJob(reg, { id: `job-${process.pid}-l1`, command: "run-me" });

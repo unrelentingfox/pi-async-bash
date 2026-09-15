@@ -73,7 +73,7 @@ void describe("buildTaskNotification — CC's exact XML", () => {
             toolUseId: "tc-42",
             outputFile: "/tmp/pi-bg/job-1-1.log",
             status: "completed",
-            summary: `Background command "npm test" completed (exit code 0)`,
+            summary: `Async command "npm test" completed (exit code 0)`,
         });
         assert.equal(
             xml,
@@ -83,7 +83,7 @@ void describe("buildTaskNotification — CC's exact XML", () => {
                 "<tool_use_id>tc-42</tool_use_id>",
                 "<output_file>/tmp/pi-bg/job-1-1.log</output_file>",
                 "<status>completed</status>",
-                `<summary>Background command "npm test" completed (exit code 0)</summary>`,
+                `<summary>Async command "npm test" completed (exit code 0)</summary>`,
                 "</task-notification>",
             ].join("\n")
         );
@@ -122,31 +122,31 @@ void describe("completionSummary — CC's exact strings", () => {
     void it("bash completed with an exit code", () => {
         assert.equal(
             completionSummary(mkJob({ status: "completed", exitCode: 0 })),
-            `Background command "npm test" completed (exit code 0)`
+            `Async command "npm test" completed (exit code 0)`
         );
     });
     void it("bash completed without an exit code omits the suffix", () => {
         assert.equal(
             completionSummary(mkJob({ status: "completed", exitCode: undefined })),
-            `Background command "npm test" completed`
+            `Async command "npm test" completed`
         );
     });
     void it("bash failed", () => {
         assert.equal(
             completionSummary(mkJob({ status: "failed", exitCode: 3 })),
-            `Background command "npm test" failed with exit code 3`
+            `Async command "npm test" failed with exit code 3`
         );
     });
     void it("bash killed", () => {
         assert.equal(
             completionSummary(mkJob({ status: "killed" })),
-            `Background command "npm test" was stopped`
+            `Async command "npm test" was stopped`
         );
     });
     void it("uses the job name as {desc} when set", () => {
         assert.equal(
             completionSummary(mkJob({ name: "tests", status: "completed", exitCode: 0 })),
-            `Background command "tests" completed (exit code 0)`
+            `Async command "tests" completed (exit code 0)`
         );
     });
     void it("monitor summaries", () => {
@@ -162,21 +162,6 @@ void describe("completionSummary — CC's exact strings", () => {
         assert.equal(
             completionSummary(mkJob({ ...base, status: "killed" })),
             `Monitor "API health" stopped`
-        );
-    });
-    void it("agent summaries", () => {
-        const base = { kind: "agent" as const, command: "pi -p (background agent)" };
-        assert.equal(
-            completionSummary(mkJob({ ...base, status: "completed" })),
-            `Agent "pi -p (background agent)" completed`
-        );
-        assert.equal(
-            completionSummary(mkJob({ ...base, status: "failed", exitCode: 1 })),
-            `Agent "pi -p (background agent)" failed: exit code 1`
-        );
-        assert.equal(
-            completionSummary(mkJob({ ...base, status: "killed" })),
-            `Agent "pi -p (background agent)" was stopped`
         );
     });
 });
@@ -202,13 +187,13 @@ void describe("sendTaskNotification — exactly-once + eviction", () => {
                 "<tool_use_id>tc-42</tool_use_id>",
                 "<output_file>/tmp/pi-bg/job-1-1.log</output_file>",
                 "<status>completed</status>",
-                `<summary>Background command "npm test" completed (exit code 0)</summary>`,
+                `<summary>Async command "npm test" completed (exit code 0)</summary>`,
                 "</task-notification>",
             ].join("\n")
         );
         // Details carry the structured status/summary for the TUI renderer.
         assert.equal(m.details?.status, "completed");
-        assert.equal(m.details?.summary, `Background command "npm test" completed (exit code 0)`);
+        assert.equal(m.details?.summary, `Async command "npm test" completed (exit code 0)`);
         // Steer + triggerTurn — CC's 'next' priority, waking an idle agent.
         assert.deepEqual(deliverOptions[0], { deliverAs: "steer", triggerTurn: true });
         // Evicted: terminal + notified leaves the live registry.
@@ -291,7 +276,7 @@ void describe("completeJob — exit-path notification", () => {
         const { reg, pi, ctx, messages } = harness();
         const job = mkJob({ id: "job-9-2", status: "running", exitCode: undefined });
         add(reg, job);
-        markNotified(job); // jobs output / attach raced the exit
+        markNotified(job); // bash_async_list output / attach raced the exit
         completeJob({ job, code: 1, reg, pi: pi as never, ctx });
         assert.equal(messages.length, 0);
         assert.equal(job.status, "failed");
@@ -308,7 +293,7 @@ void describe("completeJob — exit-path notification", () => {
         assert.equal(reg.jobs.has("job-9-3"), false);
     });
 
-    void it("shouldNotify: false without prior notice still evicts (bash_bg notify: false)", () => {
+    void it("shouldNotify: false without prior notice still evicts (bash_async notify: false)", () => {
         const { reg, pi, ctx, messages } = harness();
         const job = mkJob({ id: "job-9-4", status: "running", exitCode: undefined });
         add(reg, job);
