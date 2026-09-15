@@ -22,6 +22,8 @@
     "!src/__tests__/**",
     "index.ts",
     "README.md",
+    "RELEASING.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "pi": {
@@ -30,11 +32,14 @@
     ]
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": true
   },
   "scripts": {
-    "test": "node --experimental-strip-types --test --test-force-exit 'src/__tests__/*.test.ts'",
-    "check": "tsc --noEmit"
+    "test": "node --experimental-strip-types --test --test-force-exit 'src/__tests__/*.test.ts' 'src/__tests__/*.test.mjs'",
+    "typecheck": "tsc --noEmit",
+    "check:pack": "node scripts/check-pack.mjs",
+    "check": "pnpm test && pnpm run typecheck && pnpm run check:pack"
   },
   "peerDependencies": {
     "@earendil-works/pi-agent-core": ">=0.79.0",
@@ -55,5 +60,8 @@
   "bugs": {
     "url": "https://github.com/unrelentingfox/pi-async-bash/issues"
   },
-  "homepage": "https://github.com/unrelentingfox/pi-async-bash#readme"
+  "homepage": "https://github.com/unrelentingfox/pi-async-bash#readme",
+  "engines": {
+    "node": ">=22.19.0"
+  }
 }

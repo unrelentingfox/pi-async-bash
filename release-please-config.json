@@ -1,0 +1,10 @@
+{
+  "bootstrap-sha": "88adf5dbc27ebb8c3662df4a7a0fa3000373df1f",
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "package-name": "pi-async-bash",
+      "include-component-in-tag": false
+    }
+  }
+}
