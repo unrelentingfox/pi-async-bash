@@ -47,7 +47,11 @@ function isAlive(pid: number): boolean {
 void describe("session reload continuity", () => {
     void it("stores compatible jobs on reload and restores only current-process jobs", async () => {
         const first = harness();
-        await first.handlers.get("session_start")!({}, { sessionManager: { getEntries: () => [] } });
+        await first.handlers.get("session_start")!({}, {
+            cwd: process.cwd(),
+            isProjectTrusted: () => false,
+            sessionManager: { getEntries: () => [] },
+        });
         const bash = first.tools.get("bash")!;
         const result = await bash.execute("tool-1", { command, run_async: true }, undefined, undefined, context) as {
             content: Array<{ text: string }>;
@@ -65,7 +69,11 @@ void describe("session reload continuity", () => {
         assert.equal(isAlive(childPid), true, "reload must not terminate the child process");
 
         const second = harness();
-        await second.handlers.get("session_start")!({}, { sessionManager: { getEntries: () => [snapshot] } });
+        await second.handlers.get("session_start")!({}, {
+            cwd: process.cwd(),
+            isProjectTrusted: () => false,
+            sessionManager: { getEntries: () => [snapshot] },
+        });
         const list = await second.tools.get("bash_async_list")!.execute(
             "tool-2", { action: "list" }, undefined, undefined, context,
         ) as { content: Array<{ text: string }> };
@@ -99,7 +107,11 @@ void describe("session reload continuity", () => {
                 }],
             },
         };
-        await h.handlers.get("session_start")!({}, { sessionManager: { getEntries: () => [snapshot] } });
+        await h.handlers.get("session_start")!({}, {
+            cwd: process.cwd(),
+            isProjectTrusted: () => false,
+            sessionManager: { getEntries: () => [snapshot] },
+        });
         const list = await h.tools.get("bash_async_list")!.execute(
             "tool-3", { action: "list" }, undefined, undefined, context,
         ) as { content: Array<{ text: string }> };

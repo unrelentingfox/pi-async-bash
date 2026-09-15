@@ -112,7 +112,8 @@ export function registerBashTool(
             return runForeground({
                 toolCallId,
                 command: p.command,
-                timeoutMs: p.timeout ? p.timeout * 1000 : DEFAULT_TIMEOUT_MS,
+                timeoutMs: (p.timeout ? p.timeout * 1000 : reg.defaultTimeoutMs)
+                    ?? DEFAULT_TIMEOUT_MS,
                 signal,
                 onUpdate,
                 ctx: bashCtx,

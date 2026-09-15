@@ -15,6 +15,7 @@ export class BackgroundRegistry {
     jobAborts = new Map<string, AbortController>();
 
     nonInteractive = false;
+    defaultTimeoutMs: number | undefined;
 
     completedCount = 0;
     failedCount = 0;

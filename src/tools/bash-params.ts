@@ -7,7 +7,11 @@ import { Type } from "@earendil-works/pi-ai";
 export const bashParamSchema = Type.Object({
     command: Type.String({ description: "Shell command to run" }),
     timeout: Type.Optional(
-        Type.Number({ description: "Timeout in seconds (default: 120)" })
+        Type.Number({
+            description:
+                "Timeout in seconds (default: pi-async-bash.defaultTimeoutSeconds " +
+                "from settings.json, or 120).",
+        })
     ),
     run_async: Type.Optional(
         Type.Boolean({
