@@ -2,6 +2,8 @@
  * Type definitions and shared constants for the background-tasks extension.
  */
 
+import type { TUI, Component, KeybindingsManager } from "@earendil-works/pi-tui";
+import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { ChildProcess } from "node:child_process";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 
@@ -132,6 +134,14 @@ export interface UiContext {
         theme: { fg(colour: string, text: string): string };
         select(title: string, options: string[]): Promise<string | undefined>;
         editor(title: string, content: string): Promise<string | undefined>;
+        custom?<T>(
+            factory: (
+                tui: TUI,
+                theme: Theme,
+                keybindings: KeybindingsManager,
+                done: (result: T) => void,
+            ) => Component,
+        ): Promise<T>;
     };
 }
 
