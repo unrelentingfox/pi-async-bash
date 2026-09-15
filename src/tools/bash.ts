@@ -250,14 +250,16 @@ async function runForeground(args: {
     };
 
     try {
-        // Quick completion window (2s).
+        // Quick completion window (2s). Keep the timer referenced while the
+        // detached child is the only active handle, then clear it on exit.
+        let quickTimer: NodeJS.Timeout | undefined;
         const quickResult = await Promise.race<SpawnExit | null>([
             spawned.exit,
-            new Promise<null>((r) => {
-                const t = setTimeout(() => r(null), QUICK_COMPLETION_MS);
-                t.unref();
+            new Promise<null>((resolve) => {
+                quickTimer = setTimeout(() => resolve(null), QUICK_COMPLETION_MS);
             }),
         ]);
+        if (quickTimer) clearTimeout(quickTimer);
 
         if (quickResult !== null) {
             return finishForeground(quickResult);

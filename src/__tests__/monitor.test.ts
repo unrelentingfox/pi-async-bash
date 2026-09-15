@@ -123,7 +123,12 @@ void describe("monitor — split spawn output", () => {
             logPath,
             errPath,
         });
-        await r.exit;
+        const keepAlive = setTimeout(() => {}, 5_000);
+        try {
+            await r.exit;
+        } finally {
+            clearTimeout(keepAlive);
+        }
         assert.match(readFileSync(logPath, "utf-8"), /OUT/);
         assert.doesNotMatch(readFileSync(logPath, "utf-8"), /ERR/);
         assert.match(readFileSync(errPath, "utf-8"), /ERR/);

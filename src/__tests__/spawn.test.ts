@@ -10,6 +10,20 @@ import { join } from "node:path";
 
 const testDir = join(tmpdir(), `pi-bg-test-${process.pid}`);
 
+async function awaitExit<T>(exit: Promise<T>): Promise<T> {
+    let timeout: NodeJS.Timeout | undefined;
+    try {
+        return await Promise.race([
+            exit,
+            new Promise<never>((_, reject) => {
+                timeout = setTimeout(() => reject(new Error("process did not exit")), 5_000);
+            }),
+        ]);
+    } finally {
+        if (timeout) clearTimeout(timeout);
+    }
+}
+
 describe("spawnWithFileOutput", () => {
     test("captures stdout to log file", async () => {
         const { spawnWithFileOutput } = await import("../spawn.ts");
@@ -21,7 +35,7 @@ describe("spawnWithFileOutput", () => {
             logPath,
         });
         assert.ok(result.pid > 0);
-        const { code } = await result.exit;
+        const { code } = await awaitExit(result.exit);
         assert.equal(code, 0);
         const output = readFileSync(logPath, "utf-8");
         assert.ok(output.includes("hello world"));
@@ -37,7 +51,7 @@ describe("spawnWithFileOutput", () => {
             cwd: process.cwd(),
             logPath,
         });
-        const { code } = await result.exit;
+        const { code } = await awaitExit(result.exit);
         assert.equal(code, 0);
         const output = readFileSync(logPath, "utf-8");
         assert.ok(output.includes("err msg"));
@@ -53,7 +67,7 @@ describe("spawnWithFileOutput", () => {
             cwd: process.cwd(),
             logPath,
         });
-        const { code } = await result.exit;
+        const { code } = await awaitExit(result.exit);
         assert.equal(code, 42);
         try { unlinkSync(logPath); } catch {}
     });
@@ -72,7 +86,7 @@ describe("spawnWithFileOutput", () => {
         // Give process time to start
         await new Promise((r) => setTimeout(r, 200));
         ac.abort();
-        const { code, signal } = await result.exit;
+        const { code, signal } = await awaitExit(result.exit);
         // Killed process: a signal death, or at least a non-zero code.
         assert.ok(signal !== null || code !== 0);
         try { unlinkSync(logPath); } catch {}
@@ -118,7 +132,7 @@ describe("killProcessTree", () => {
         await new Promise((r) => setTimeout(r, 200));
         assert.ok(processExists(result.pid));
         killProcessTree(result.pid);
-        await result.exit;
+        await awaitExit(result.exit);
         // After exit, process should be gone (give OS a moment)
         await new Promise((r) => setTimeout(r, 100));
         assert.ok(!processExists(result.pid));
