@@ -41,7 +41,7 @@ publication is not yet configured.
 
 | Command | Behavior |
 | --- | --- |
-| `/bash-async` | Move every active foreground Bash command to async execution and return control to the agent. |
+| `/bash-async` | Send the currently running bash command to the background. Return control to the agent. |
 | `/bash-async-list` | Open the interactive task manager. It reads the same registry as `bash_async_list` and lets a user inspect output or stop a task without a model tool call. |
 
 There are no keyboard shortcuts. While a foreground command runs, the editor
