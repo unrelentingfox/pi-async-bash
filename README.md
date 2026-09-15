@@ -30,7 +30,7 @@ publication is not yet configured.
 | Tool | Parameters | Behavior |
 | --- | --- | --- |
 | `bash` | `command`; optional `timeout`, `run_async`, `description` | Overrides Pi's Bash tool. Commands start in the foreground by default. `run_async: true` starts detached work immediately. A long foreground command continues asynchronously after `timeout`. |
-| `bash_async` | `command`; optional `name`, `timeout`, `notify` | Starts a command asynchronously and returns its job ID and `/tmp/pi-bg/<jobId>.log` path. It sends one terminal notification unless `notify: false`. |
+| `bash_async` | `command`; optional `name`, `timeout`, `notify` | Starts a command asynchronously, shows the command in the call row, and returns its job ID and `/tmp/pi-bg/<jobId>.log` path. It sends one terminal notification unless `notify: false`. |
 | `bash_async_list` | `action`: `list`, `output`, `kill`, `attach`, `search`, `cleanup`, or `stats`; action-specific `jobId`, `pattern`, `wait` | Lists, reads, follows, searches, stops, cleans up, and reports on async jobs and watches. |
 | `bash_async_watch` | exactly one of `command` or `ws`; `description`; optional `persistent`, `timeout_ms` | Returns immediately and delivers each stdout line or WebSocket text frame as an event. It stops on source exit, timeout, event-rate protection, or `bash_async_list` `kill`. |
 | `bash_async_decide` | `jobId`; `decision`: `keep`, `kill`, or `check` | Resolves a `bash_async` command that has exceeded its optional timeout. |

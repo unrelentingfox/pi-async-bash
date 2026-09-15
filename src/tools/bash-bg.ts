@@ -19,6 +19,7 @@ import {
     startBackgroundJob,
 } from "../lifecycle.ts";
 import { textBlock } from "../format.ts";
+import { renderBashAsyncCall } from "../render.ts";
 
 type BashAsyncContext = UiContext & { cwd: string };
 
@@ -41,6 +42,7 @@ export function registerBashBgTool(pi: ExtensionAPI, reg: BackgroundRegistry): v
             timeout: Type.Optional(Type.Number({ description: "Decision timeout in seconds" })),
             notify: Type.Optional(Type.Boolean({ description: "Send terminal notification (default: true)" })),
         }),
+        renderCall: renderBashAsyncCall,
         async execute(toolCallId, params, _signal, _onUpdate, ctx) {
             const input = params as { command: string; name?: string; timeout?: number; notify?: boolean };
             const asyncContext = ctx as BashAsyncContext;
