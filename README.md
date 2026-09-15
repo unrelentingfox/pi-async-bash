@@ -18,6 +18,12 @@ published, so this project uses `pi-async-bash`.
 
 ## Install
 
+Install from npm:
+
+```bash
+pi install npm:pi-async-bash
+```
+
 During development, add the local checkout to Pi settings:
 
 ```json
@@ -27,9 +33,6 @@ During development, add the local checkout to Pi settings:
   ]
 }
 ```
-
-The repository will later be consumable from a pinned Git tag or commit. npm
-publication is not yet configured.
 
 ## Agent tools
 
@@ -87,9 +90,8 @@ a follow-up.
 ## Development
 
 ```bash
-npm install
-npm test
-npm run check
+pnpm install --frozen-lockfile
+pnpm run check
 ```
 
 ## License and attribution

@@ -149,7 +149,12 @@ void describe("async task list keyboard behavior", () => {
         component.handleInput("\x18");
         component.handleInput("enter");
         component.handleInput("enter");
-        await spawned.exit;
+        const keepAlive = setTimeout(() => {}, 5_000);
+        try {
+            await spawned.exit;
+        } finally {
+            clearTimeout(keepAlive);
+        }
 
         assert.equal(processExists(spawned.pid), false);
         assert.deepEqual(completed, [{ action: "reload", selectedJobId: job.id }]);
