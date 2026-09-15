@@ -1,5 +1,11 @@
 # pi-async-bash
 
+[![npm version](https://img.shields.io/npm/v/pi-async-bash)](https://www.npmjs.com/package/pi-async-bash)
+[![npm downloads](https://img.shields.io/npm/dm/pi-async-bash)](https://www.npmjs.com/package/pi-async-bash)
+[![CI](https://img.shields.io/github/actions/workflow/status/unrelentingfox/pi-async-bash/ci.yml?branch=main&label=CI)](https://github.com/unrelentingfox/pi-async-bash/actions/workflows/ci.yml)
+[![Node.js](https://img.shields.io/node/v/pi-async-bash)](https://www.npmjs.com/package/pi-async-bash)
+[![License](https://img.shields.io/github/license/unrelentingfox/pi-async-bash)](https://github.com/unrelentingfox/pi-async-bash/blob/main/LICENSE)
+
 `pi-async-bash` adds asynchronous Bash execution, task management, and event
 watches to [Pi](https://github.com/badlogic/pi-mono).
 
