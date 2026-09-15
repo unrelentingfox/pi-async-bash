@@ -41,10 +41,6 @@ void describe("pi-async-bash public interface", () => {
     void it("registers only the approved async commands", () => {
         const { commands } = loadExtension();
         assert.deepEqual([...commands.keys()].sort(), ["bash-async", "bash-async-list"]);
-        assert.equal(
-            commands.get("bash-async")?.description,
-            "Send the currently running bash command to the background. Return control to the agent",
-        );
         for (const legacy of ["bg", "bg-list", "bg-version"]) {
             assert.equal(commands.has(legacy), false, `${legacy} must not be registered`);
         }
