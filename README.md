@@ -3,13 +3,6 @@
 `pi-async-bash` adds asynchronous Bash execution, task management, and event
 watches to [Pi](https://github.com/badlogic/pi-mono).
 
-It is a focused fork of
-[`patty-io/pi-patty-bg-tasks`](https://github.com/patty-io/pi-patty-bg-tasks).
-The fork retains the upstream Git history and MIT notice, removes background Pi
-agent spawning and all keyboard shortcuts, and renames the public interface to
-use `async` consistently. The unscoped name `pi-background-bash` was already
-published, so this project uses `pi-async-bash`.
-
 ## Install
 
 During development, add the local checkout to Pi settings:
@@ -91,5 +84,14 @@ npm run check
 Copyright (c) 2026 patty.io
 Copyright (c) 2026 Dustin Fox (fork modifications)
 
-Licensed under the MIT License. See [LICENSE](LICENSE). This fork retains the
-upstream MIT permission notice and original project history.
+Licensed under the MIT License. See [LICENSE](LICENSE).
+
+## Fork and attribution
+
+`pi-async-bash` is based on Patrick Rho's
+[`patty-io/pi-patty-bg-tasks`](https://github.com/patty-io/pi-patty-bg-tasks).
+It retains the upstream Git history and MIT notice. This project removes
+background Pi agent spawning and global keyboard shortcuts, and renames the
+public interface to use `async` consistently. The unscoped name
+`pi-background-bash` was already published, so this project uses
+`pi-async-bash`.
