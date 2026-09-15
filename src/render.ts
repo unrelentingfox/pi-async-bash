@@ -36,7 +36,7 @@ function renderCall(content: string, context: RenderContext): Text {
 }
 
 function renderTimeout(value: unknown, theme: RenderTheme): string {
-    return typeof value === "number" && Number.isFinite(value)
+    return typeof value === "number" && Number.isFinite(value) && value > 0
         ? theme.fg("muted", ` (timeout ${value}s)`)
         : "";
 }

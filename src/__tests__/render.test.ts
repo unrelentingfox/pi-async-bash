@@ -33,6 +33,24 @@ test("renders an async command with a timeout", () => {
     );
 });
 
+test("omits the timeout suffix when timeout is absent", () => {
+    const component = renderBashAsyncCall({ command: "pnpm check" }, theme, {});
+
+    assert.equal(renderedText(component), "[toolTitle:*$ pnpm check*]");
+});
+
+test("omits the timeout suffix when timeout is not positive", () => {
+    for (const timeout of [0, -5]) {
+        const component = renderBashAsyncCall(
+            { command: "pnpm check", timeout },
+            theme,
+            {},
+        );
+
+        assert.equal(renderedText(component), "[toolTitle:*$ pnpm check*]");
+    }
+});
+
 test("renders missing arguments with an ellipsis", () => {
     const component = renderBashAsyncCall(undefined, theme, {});
 
@@ -71,6 +89,7 @@ test("replaces a foreign cached component", () => {
 
     assert.ok(component instanceof Text);
     assert.notStrictEqual(component, foreignComponent);
+    assert.equal(renderedText(component), "[toolTitle:*$ echo fresh*]");
 });
 
 test("renders wide glyphs", () => {
