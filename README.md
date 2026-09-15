@@ -39,6 +39,27 @@ During development, add the local checkout to Pi settings:
 
 `run_in_background` is not supported. Use `run_async` instead.
 
+## Configuration
+
+Set `pi-async-bash.defaultTimeoutSeconds` in Pi's global
+`~/.pi/agent/settings.json`. A trusted project's `.pi/settings.json` can
+provide the same key and takes precedence.
+
+```json
+{
+  "pi-async-bash": {
+    "defaultTimeoutSeconds": 5
+  }
+}
+```
+
+The extension falls back to 120 seconds when this setting is absent or invalid.
+The 2-second quick-completion window still returns fast commands inline. Values
+at or below 2 seconds background commands immediately after that window; the
+5-second setting above gives slower commands three more seconds to finish. A
+`timeout` passed to an individual `bash` call overrides this setting. This
+setting does not affect the separate decision timeout on `bash_async`.
+
 ## Slash commands
 
 | Command | Behavior |

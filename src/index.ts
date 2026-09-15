@@ -18,6 +18,7 @@ import { registerMonitorTool } from "./tools/monitor.ts";
 import { registerCommands } from "./commands.ts";
 import { registerJobDecideTool } from "./tools/job-decide.ts";
 import { registerInputHandlers } from "./input.ts";
+import { loadConfig } from "./config.ts";
 
 /** Extension entry point. */
 export default function (pi: ExtensionAPI): void {
@@ -69,6 +70,7 @@ export default function (pi: ExtensionAPI): void {
     // work through `/reload` but refuses to signal reused PIDs after restart.
     pi.on("session_start", async (_event, ctx) => {
         reg.nonInteractive = detectNonInteractive(process.argv, Boolean(process.stdin.isTTY));
+        reg.defaultTimeoutMs = loadConfig(ctx.cwd, ctx.isProjectTrusted()).defaultTimeoutMs;
         const entries = ctx.sessionManager.getEntries();
         const state = [...entries].reverse().find((entry) =>
             entry.type === "custom" && entry.customType === "pi-async-bash-state"

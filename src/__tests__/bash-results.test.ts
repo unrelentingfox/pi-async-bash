@@ -89,6 +89,42 @@ void describe("bash tool — Claude Code tool-result strings", () => {
         );
     });
 
+    void it("uses the configured default timeout when no per-call timeout is provided", async () => {
+        const { tool, reg, ctx } = harness();
+        reg.defaultTimeoutMs = 1_000;
+        const res = await tool.execute(
+            "t3-default",
+            { command: "tail -f /dev/null" },
+            undefined,
+            undefined,
+            ctx
+        );
+        const job = onlyJob(reg);
+        spawnedPids.push(job.pid);
+        assert.equal(
+            res.content[0].text,
+            `Command running asynchronously with ID: ${job.id}. Output is being written to: ${job.logPath}`
+        );
+    });
+
+    void it("per-call timeout overrides the configured default", async () => {
+        const { tool, reg, ctx } = harness();
+        reg.defaultTimeoutMs = 60_000;
+        const res = await tool.execute(
+            "t3-override",
+            { command: "tail -f /dev/null", timeout: 1 },
+            undefined,
+            undefined,
+            ctx
+        );
+        const job = onlyJob(reg);
+        spawnedPids.push(job.pid);
+        assert.equal(
+            res.content[0].text,
+            `Command running asynchronously with ID: ${job.id}. Output is being written to: ${job.logPath}`
+        );
+    });
+
     void it("timeout auto-background returns the same generic CC string", async () => {
         const { tool, reg, ctx } = harness();
         const res = await tool.execute(
