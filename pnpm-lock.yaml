@@ -18,8 +18,8 @@ importers:
         specifier: ^0.83.0
         version: 0.83.0(ws@8.21.3)(zod@4.4.3)
       '@earendil-works/pi-tui':
-        specifier: ^0.83.0
-        version: 0.83.0
+        specifier: ^0.85.1
+        version: 0.85.1
       '@types/node':
         specifier: 25.6.2
         version: 25.6.2
@@ -176,6 +176,10 @@ packages:
 
   '@earendil-works/pi-tui@0.83.0':
     resolution: {integrity: sha512-IoYrb0rORjELmEpNtoCA/U8je3KopMkRAVJRdSzvXRvgb+Huo1gNh8Q5CSZvNOiYtDxJdj2tYZZHZ4B3+IN3hA==}
+    engines: {node: '>=22.19.0'}
+
+  '@earendil-works/pi-tui@0.85.1':
+    resolution: {integrity: sha512-OIzw9efInmO4WOBnD4TxcTdBjmzvYJpzslkgoUro946nEGoYWg5rwv1p4fDt3/JvMx9QybryUCUwlm7j8Dreig==}
     engines: {node: '>=22.19.0'}
 
   '@google/genai@1.52.0':
@@ -967,6 +971,11 @@ snapshots:
   '@earendil-works/pi-telemetry@0.85.1': {}
 
   '@earendil-works/pi-tui@0.83.0':
+    dependencies:
+      get-east-asian-width: 1.6.0
+      marked: 18.0.5
+
+  '@earendil-works/pi-tui@0.85.1':
     dependencies:
       get-east-asian-width: 1.6.0
       marked: 18.0.5
