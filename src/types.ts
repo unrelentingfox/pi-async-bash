@@ -2,7 +2,7 @@
  * Type definitions and shared constants for the background-tasks extension.
  */
 
-import type { TUI, Component, KeybindingsManager } from "@earendil-works/pi-tui";
+import type { TUI, Component, KeybindingsManager, OverlayOptions } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { ChildProcess } from "node:child_process";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
@@ -141,6 +141,7 @@ export interface UiContext {
                 keybindings: KeybindingsManager,
                 done: (result: T) => void,
             ) => Component,
+            options?: { overlay?: boolean; overlayOptions?: OverlayOptions },
         ): Promise<T>;
     };
 }

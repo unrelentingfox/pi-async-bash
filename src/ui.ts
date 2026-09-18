@@ -1,13 +1,14 @@
 /** Async Bash task manager for `/bash-async-list`. */
 
 import { DynamicBorder, type Theme } from "@earendil-works/pi-coding-agent";
-import { Container, Key, matchesKey, SelectList, Text, type Component, type KeybindingsManager, type SelectItem, type TUI } from "@earendil-works/pi-tui";
+import { Container, Key, matchesKey, SelectList, sliceByColumn, Text, truncateToWidth, visibleWidth, type Component, type KeybindingsManager, type SelectItem, type TUI } from "@earendil-works/pi-tui";
 import type { Job, UiContext } from "./types.ts";
-import { OUTPUT_PREVIEW_CHARS, PREVIEW_CHARS } from "./types.ts";
+import { MAX_LOG_BYTES, PREVIEW_CHARS } from "./types.ts";
 import type { BackgroundRegistry } from "./state.ts";
 import { formatDuration, jobLabel } from "./format.ts";
 import { terminateJobSilently } from "./lifecycle.ts";
-import { readLogTail, renderSidebar } from "./registry.ts";
+import { renderSidebar } from "./registry.ts";
+import { followAppendedLog, readFullLogSnapshot } from "./output.ts";
 
 type TaskSelection =
     | { action: "output"; job: Job; selectedJobId: string }
@@ -281,16 +282,267 @@ function jobToSelectItem(job: Job): SelectItem {
 }
 
 async function showOutput(job: Job, ctx: UiContext): Promise<void> {
-    const output = readLogTail(job, OUTPUT_PREVIEW_CHARS);
-    const duration = formatDuration(Date.now() - job.startTime);
-    const exitLine = job.exitCode === undefined ? "" : `\nExit code: ${job.exitCode}`;
-    await ctx.ui.editor(
-        `${statusIcon(job)} ${jobLabel(job)}`,
-        `Command: ${job.command}\n` +
-        `PID: ${job.pid} · Started: ${new Date(job.startTime).toLocaleString()}\n` +
-        `Duration: ${duration} · Status: ${job.status}${exitLine}\n` +
-        `Log: ${job.logPath}\n\n--- OUTPUT ---\n${output}\n\nEsc returns to the task list`,
-    );
+    const snapshot = readFullLogSnapshot(job.logPath);
+    await (ctx.ui.custom?.<void>((tui, theme, _keybindings, done) =>
+        new OutputViewerComponent(job, snapshot.content, tui, theme, done, snapshot.byteLength, job.logPath),
+    {
+        overlay: true,
+        overlayOptions: {
+            anchor: "top-left",
+            width: "100%",
+            maxHeight: "100%",
+            margin: 0,
+        },
+    }) ?? Promise.resolve());
+}
+
+type OutputViewerLayout = {
+    metadataRows: number;
+    outputRows: number;
+    showBottomBorder: boolean;
+    showFooter: boolean;
+    showTopBorder: boolean;
+};
+
+export class OutputViewerComponent extends Container {
+    private readonly job: Job;
+    private readonly outputLines: string[];
+    private readonly tui: TUI;
+    private readonly theme: Theme;
+    private readonly done: () => void;
+    private readonly topBorder: DynamicBorder;
+    private readonly bottomBorder: DynamicBorder;
+    private verticalOffset = 0;
+    private horizontalOffset = 0;
+    private pendingGoToTop = false;
+    private viewportWidth: number;
+    private autoFollow = true;
+    private replaceOnFirstAppend: boolean;
+    private retainedBytes: number;
+    private disposed = false;
+    private readonly maxRetainedBytes: number;
+    private readonly stopFollowing: () => void;
+
+    constructor(
+        job: Job,
+        output: string,
+        tui: TUI,
+        theme: Theme,
+        done: () => void,
+        initialOffset?: number,
+        logPath?: string,
+        maxRetainedBytes = MAX_LOG_BYTES,
+    ) {
+        super();
+        this.job = job;
+        this.outputLines = output.split("\n");
+        this.retainedBytes = Buffer.byteLength(output);
+        this.maxRetainedBytes = maxRetainedBytes;
+        this.trimRetainedOutput();
+        this.tui = tui;
+        this.theme = theme;
+        this.done = done;
+        this.topBorder = new DynamicBorder((text: string) => this.theme.fg("accent", text));
+        this.bottomBorder = new DynamicBorder((text: string) => this.theme.fg("accent", text));
+        this.viewportWidth = Math.max(1, tui.terminal.columns);
+        this.verticalOffset = this.maximumVerticalOffset();
+        this.replaceOnFirstAppend = initialOffset === 0;
+        const follower = initialOffset === undefined || logPath === undefined
+            ? undefined
+            : followAppendedLog(logPath, initialOffset, (appended, replaced) => {
+                if (replaced || this.replaceOnFirstAppend) {
+                    this.replaceOutput(appended);
+                    this.replaceOnFirstAppend = false;
+                } else {
+                    this.appendOutput(appended);
+                }
+                if (this.autoFollow) this.scrollToBottom();
+                else this.requestRender();
+            });
+        this.stopFollowing = () => follower?.stop();
+    }
+
+    handleInput(data: string): void {
+        if (matchesKey(data, Key.escape)) {
+            this.dispose();
+            this.done();
+            return;
+        }
+
+        if (matchesKey(data, "g")) {
+            if (this.pendingGoToTop) {
+                this.verticalOffset = 0;
+                this.autoFollow = false;
+                this.pendingGoToTop = false;
+                this.requestRender();
+            } else {
+                this.pendingGoToTop = true;
+            }
+            return;
+        }
+
+        this.pendingGoToTop = false;
+        if (matchesKey(data, Key.home)) return this.scrollToTop();
+        if (matchesKey(data, Key.end) || matchesKey(data, Key.shift("g"))) return this.scrollToBottom();
+        if (matchesKey(data, Key.up) || matchesKey(data, "k")) return this.moveVertically(-1);
+        if (matchesKey(data, Key.down) || matchesKey(data, "j")) return this.moveVertically(1);
+        if (matchesKey(data, Key.left) || matchesKey(data, "h")) return this.moveHorizontally(-1);
+        if (matchesKey(data, Key.right) || matchesKey(data, "l")) return this.moveHorizontally(1);
+        if (matchesKey(data, Key.pageUp) || matchesKey(data, "u")) return this.moveVertically(-this.outputViewportRows());
+        if (matchesKey(data, Key.pageDown) || matchesKey(data, "d")) return this.moveVertically(this.outputViewportRows());
+    }
+
+    render(width: number): string[] {
+        this.viewportWidth = Math.max(1, width);
+        const layout = this.layout();
+        this.clampOffsets();
+        const metadata = this.metadataLines()
+            .slice(0, layout.metadataRows)
+            .map((line) => truncateToWidth(line, this.viewportWidth));
+        const output = this.padOutputRows(
+            this.outputLines
+                .slice(this.verticalOffset, this.verticalOffset + layout.outputRows)
+                .map((line) => sliceByColumn(line, this.horizontalOffset, this.viewportWidth, true)),
+            layout,
+        );
+        const footer = this.theme.fg(
+            "dim",
+            "↑↓/jk scroll · ←→/hl horizontal · Home/End or gg/G · PgUp/PgDn or u/d · Esc back",
+        );
+        return [
+            ...(layout.showTopBorder ? this.topBorder.render(this.viewportWidth) : []),
+            ...metadata,
+            ...output,
+            ...(layout.showFooter ? [truncateToWidth(footer, this.viewportWidth)] : []),
+            ...(layout.showBottomBorder ? this.bottomBorder.render(this.viewportWidth) : []),
+        ];
+    }
+
+    dispose(): void {
+        if (this.disposed) return;
+        this.disposed = true;
+        this.stopFollowing();
+    }
+
+    private appendOutput(appended: string): void {
+        const lines = appended.split("\n");
+        this.outputLines[this.outputLines.length - 1] += lines.shift() ?? "";
+        this.outputLines.push(...lines);
+        this.retainedBytes += Buffer.byteLength(appended);
+        this.preserveViewportAfterTrim(this.trimRetainedOutput());
+    }
+
+    private replaceOutput(output: string): void {
+        this.outputLines.splice(0, this.outputLines.length, ...output.split("\n"));
+        this.retainedBytes = Buffer.byteLength(output);
+        this.preserveViewportAfterTrim(this.trimRetainedOutput());
+    }
+
+    private trimRetainedOutput(): number {
+        let removedLines = 0;
+        while (this.retainedBytes > this.maxRetainedBytes && this.outputLines.length > 1) {
+            this.retainedBytes -= Buffer.byteLength(this.outputLines.shift()!) + 1;
+            removedLines++;
+        }
+        if (this.retainedBytes > this.maxRetainedBytes) {
+            const onlyLine = Buffer.from(this.outputLines[0]);
+            this.outputLines[0] = onlyLine.subarray(-this.maxRetainedBytes).toString("utf8");
+            this.retainedBytes = Buffer.byteLength(this.outputLines[0]);
+        }
+        return removedLines;
+    }
+
+    private preserveViewportAfterTrim(removedLines: number): void {
+        if (!this.autoFollow) this.verticalOffset = Math.max(0, this.verticalOffset - removedLines);
+    }
+
+    private padOutputRows(output: string[], layout: OutputViewerLayout): string[] {
+        if (!layout.showTopBorder || !layout.showFooter || !layout.showBottomBorder) return output;
+        return [...output, ...Array<string>(layout.outputRows - output.length).fill("")];
+    }
+
+    private metadataLines(): string[] {
+        const duration = formatDuration(Date.now() - this.job.startTime);
+        const exitCode = this.job.exitCode === undefined ? "" : ` · Exit code: ${this.job.exitCode}`;
+        return [
+            this.theme.fg("accent", this.theme.bold(`${statusIcon(this.job)} ${jobLabel(this.job)}`)),
+            `Command: ${this.job.command}`,
+            `PID: ${this.job.pid} · Started: ${new Date(this.job.startTime).toLocaleString()}`,
+            `Duration: ${duration} · Status: ${this.job.status}${exitCode}`,
+            `Log: ${this.job.logPath}`,
+            "--- OUTPUT ---",
+        ];
+    }
+
+    private outputViewportRows(): number {
+        return this.layout().outputRows;
+    }
+
+    private layout(): OutputViewerLayout {
+        const budget = Math.max(1, this.tui.terminal.rows);
+        if (budget < 3) {
+            return { metadataRows: 0, outputRows: 1, showBottomBorder: false, showFooter: false, showTopBorder: false };
+        }
+        if (budget === 3) {
+            return { metadataRows: 0, outputRows: 1, showBottomBorder: true, showFooter: false, showTopBorder: true };
+        }
+        if (budget === 4) {
+            return { metadataRows: 0, outputRows: 1, showBottomBorder: true, showFooter: true, showTopBorder: true };
+        }
+
+        const contentRows = budget - 3;
+        const metadataRows = Math.min(this.metadataLines().length, contentRows - 1);
+        return {
+            metadataRows,
+            outputRows: contentRows - metadataRows,
+            showBottomBorder: true,
+            showFooter: true,
+            showTopBorder: true,
+        };
+    }
+
+    private moveVertically(delta: number): void {
+        this.verticalOffset += delta;
+        this.clampOffsets();
+        this.autoFollow = this.verticalOffset === this.maximumVerticalOffset();
+        this.requestRender();
+    }
+
+    private moveHorizontally(delta: number): void {
+        this.horizontalOffset += delta;
+        this.clampOffsets();
+        this.requestRender();
+    }
+
+    private scrollToTop(): void {
+        this.verticalOffset = 0;
+        this.autoFollow = false;
+        this.requestRender();
+    }
+
+    private scrollToBottom(): void {
+        this.verticalOffset = this.maximumVerticalOffset();
+        this.autoFollow = true;
+        this.requestRender();
+    }
+
+    private clampOffsets(): void {
+        this.verticalOffset = Math.max(0, Math.min(this.verticalOffset, this.maximumVerticalOffset()));
+        this.horizontalOffset = Math.max(0, Math.min(this.horizontalOffset, this.maximumHorizontalOffset()));
+    }
+
+    private maximumVerticalOffset(): number {
+        return Math.max(0, this.outputLines.length - this.outputViewportRows());
+    }
+
+    private maximumHorizontalOffset(): number {
+        const widestLine = Math.max(0, ...this.outputLines.map((line) => visibleWidth(line)));
+        return Math.max(0, widestLine - this.viewportWidth);
+    }
+
+    private requestRender(): void {
+        this.tui.requestRender();
+    }
 }
 
 function getJobList(reg: BackgroundRegistry): Job[] {
