@@ -1,6 +1,14 @@
 // src/output.ts
 import { closeSync, fstatSync, openSync, readSync, statSync } from "node:fs";
-import { FOREGROUND_TAIL_BYTES } from "./types.ts";
+import { StringDecoder } from "node:string_decoder";
+import { FOREGROUND_TAIL_BYTES, MAX_LOG_BYTES } from "./types.ts";
+
+export const NO_OUTPUT_YET = "(no output yet)";
+
+export interface LogSnapshot {
+    content: string;
+    byteLength: number;
+}
 
 /**
  * Read the tail of a log file, bounded by maxChars. Only the last maxChars
@@ -12,11 +20,11 @@ export function readBoundedTail(logPath: string, maxChars: number): string {
     try {
         fd = openSync(logPath, "r");
     } catch {
-        return "(no output yet)";
+        return NO_OUTPUT_YET;
     }
     try {
         const { size } = fstatSync(fd);
-        if (size === 0) return "(no output yet)";
+        if (size === 0) return NO_OUTPUT_YET;
         const toRead = Math.min(size, maxChars);
         const buf = Buffer.alloc(toRead);
         readSync(fd, buf, 0, toRead, Math.max(0, size - toRead));
@@ -25,10 +33,104 @@ export function readBoundedTail(logPath: string, maxChars: number): string {
             ? `...[truncated, showing last ${maxChars} chars]\n${body}`
             : body;
     } catch {
-        return "(no output yet)";
+        return NO_OUTPUT_YET;
     } finally {
-        closeSync(fd);
+        try { closeSync(fd); } catch { /* best effort */ }
     }
+}
+
+/**
+ * Read the current log snapshot from one open descriptor. fstat runs after
+ * opening, so the size and bytes come from the same file and avoid a
+ * path-stat race.
+ */
+export function readFullLogSnapshot(logPath: string): LogSnapshot {
+    let fd: number;
+    try {
+        fd = openSync(logPath, "r");
+    } catch {
+        return { content: NO_OUTPUT_YET, byteLength: 0 };
+    }
+
+    try {
+        const { size } = fstatSync(fd);
+        if (size === 0) return { content: NO_OUTPUT_YET, byteLength: 0 };
+        const buffer = Buffer.allocUnsafe(Math.min(size, MAX_LOG_BYTES));
+        const start = Math.max(0, size - buffer.length);
+        let offset = 0;
+        while (offset < buffer.length) {
+            const bytesRead = readSync(fd, buffer, offset, buffer.length - offset, start + offset);
+            if (bytesRead === 0) break;
+            offset += bytesRead;
+        }
+        if (offset === 0) return { content: NO_OUTPUT_YET, byteLength: 0 };
+        const content = buffer.toString("utf8", 0, offset);
+        return {
+            content: size > MAX_LOG_BYTES
+                ? `(log exceeds the ${MAX_LOG_BYTES / (1024 * 1024)} MiB viewer limit; showing its newest content)\n${content}`
+                : content,
+            byteLength: size,
+        };
+    } catch {
+        return { content: NO_OUTPUT_YET, byteLength: 0 };
+    } finally {
+        try { closeSync(fd); } catch { /* best effort */ }
+    }
+}
+
+/** Follow bytes appended after a snapshot. The descriptor remains open so no
+ * path-stat operation can race with the read. */
+export function followAppendedLog(
+    logPath: string,
+    initialOffset: number,
+    onAppend: (text: string, replaced: boolean) => void,
+    intervalMs = 250,
+): { stop: () => void } {
+    let fd: number | undefined;
+    let offset = initialOffset;
+    let stopped = false;
+    let decoder = new StringDecoder("utf8");
+
+    const tick = () => {
+        if (stopped) return;
+        try {
+            fd ??= openSync(logPath, "r");
+            const { size } = fstatSync(fd);
+            const replaced = size < offset;
+            if (replaced) {
+                offset = 0;
+                decoder = new StringDecoder("utf8");
+            }
+
+            let appended = "";
+            while (offset < size) {
+                const buffer = Buffer.allocUnsafe(Math.min(64 * 1024, size - offset));
+                const bytesRead = readSync(fd, buffer, 0, buffer.length, offset);
+                if (bytesRead === 0) break;
+                offset += bytesRead;
+                appended += decoder.write(buffer.subarray(0, bytesRead));
+            }
+            if (appended) onAppend(appended, replaced);
+        } catch {
+            if (fd !== undefined) {
+                try { closeSync(fd); } catch { /* retry on the next tick */ }
+                fd = undefined;
+            }
+        }
+    };
+
+    const timer = setInterval(tick, intervalMs);
+    timer.unref();
+    tick();
+    return {
+        stop() {
+            stopped = true;
+            clearInterval(timer);
+            if (fd !== undefined) {
+                try { closeSync(fd); } catch { /* best effort */ }
+            }
+        },
+    };
 }
 
 // Terminal escape/control sequences stripped from a progress line so the

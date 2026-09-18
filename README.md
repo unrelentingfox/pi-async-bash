@@ -65,7 +65,7 @@ setting does not affect the separate decision timeout on `bash_async`.
 | Command | Behavior |
 | --- | --- |
 | `/bash-async` | Send the currently running bash command to the background. Return control to the agent. |
-| `/bash-async-list` | Open the interactive task manager. `j`/`k` and arrow keys move the highlight, `Enter` opens the highlighted task's output, `Ctrl+x` starts kill confirmation, and `Escape` closes the root list, returns from output, or cancels confirmation. |
+| `/bash-async-list` | Open the interactive task manager. `j`/`k` and arrow keys move the highlight, `Enter` opens the highlighted task's read-only output, `Ctrl+x` starts kill confirmation, and `Escape` closes the root list, returns from output, or cancels confirmation. Output opens as a full-terminal, read-only overlay. In output, arrows or `h`/`j`/`k`/`l` scroll one column or row; `Home`/`gg` and `End`/`G` jump to top or bottom; `PageUp`/`u` and `PageDown`/`d` scroll one page. |
 
 There are no keyboard shortcuts. While a foreground command runs, the editor
 shows `/bash-async to run asynchronously`. Submitting a new user message also
