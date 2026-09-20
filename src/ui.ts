@@ -1,7 +1,7 @@
 /** Async Bash task manager for `/bash-async-list`. */
 
 import { DynamicBorder, type Theme } from "@earendil-works/pi-coding-agent";
-import { Container, Key, matchesKey, SelectList, sliceByColumn, Text, truncateToWidth, visibleWidth, type Component, type KeybindingsManager, type SelectItem, type TUI } from "@earendil-works/pi-tui";
+import { Container, Key, matchesKey, SelectList, Text, truncateToWidth, wrapTextWithAnsi, type Component, type KeybindingsManager, type SelectItem, type TUI } from "@earendil-works/pi-tui";
 import type { Job, UiContext } from "./types.ts";
 import { MAX_LOG_BYTES, PREVIEW_CHARS } from "./types.ts";
 import type { BackgroundRegistry } from "./state.ts";
@@ -313,7 +313,8 @@ export class OutputViewerComponent extends Container {
     private readonly topBorder: DynamicBorder;
     private readonly bottomBorder: DynamicBorder;
     private verticalOffset = 0;
-    private horizontalOffset = 0;
+    private wrapWidth = 0;
+    private rowStarts: number[] = [0];
     private pendingGoToTop = false;
     private viewportWidth: number;
     private autoFollow = true;
@@ -345,6 +346,7 @@ export class OutputViewerComponent extends Container {
         this.topBorder = new DynamicBorder((text: string) => this.theme.fg("accent", text));
         this.bottomBorder = new DynamicBorder((text: string) => this.theme.fg("accent", text));
         this.viewportWidth = Math.max(1, tui.terminal.columns);
+        this.rebuildRowIndex(this.viewportWidth);
         this.verticalOffset = this.maximumVerticalOffset();
         this.replaceOnFirstAppend = initialOffset === 0;
         const follower = initialOffset === undefined || logPath === undefined
@@ -386,8 +388,6 @@ export class OutputViewerComponent extends Container {
         if (matchesKey(data, Key.end) || matchesKey(data, Key.shift("g"))) return this.scrollToBottom();
         if (matchesKey(data, Key.up) || matchesKey(data, "k")) return this.moveVertically(-1);
         if (matchesKey(data, Key.down) || matchesKey(data, "j")) return this.moveVertically(1);
-        if (matchesKey(data, Key.left) || matchesKey(data, "h")) return this.moveHorizontally(-1);
-        if (matchesKey(data, Key.right) || matchesKey(data, "l")) return this.moveHorizontally(1);
         if (matchesKey(data, Key.pageUp) || matchesKey(data, "u")) return this.moveVertically(-this.outputViewportRows());
         if (matchesKey(data, Key.pageDown) || matchesKey(data, "d")) return this.moveVertically(this.outputViewportRows());
     }
@@ -395,19 +395,15 @@ export class OutputViewerComponent extends Container {
     render(width: number): string[] {
         this.viewportWidth = Math.max(1, width);
         const layout = this.layout();
+        if (this.wrapWidth !== this.viewportWidth) this.rebuildRowIndex(this.viewportWidth);
         this.clampOffsets();
         const metadata = this.metadataLines()
             .slice(0, layout.metadataRows)
             .map((line) => truncateToWidth(line, this.viewportWidth));
-        const output = this.padOutputRows(
-            this.outputLines
-                .slice(this.verticalOffset, this.verticalOffset + layout.outputRows)
-                .map((line) => sliceByColumn(line, this.horizontalOffset, this.viewportWidth, true)),
-            layout,
-        );
+        const output = this.padOutputRows(this.renderOutputRows(layout.outputRows), layout);
         const footer = this.theme.fg(
             "dim",
-            "↑↓/jk scroll · ←→/hl horizontal · Home/End or gg/G · PgUp/PgDn or u/d · Esc back",
+            "↑↓/jk scroll · Home/End or gg/G · PgUp/PgDn or u/d · Esc back",
         );
         return [
             ...(layout.showTopBorder ? this.topBorder.render(this.viewportWidth) : []),
@@ -425,17 +421,22 @@ export class OutputViewerComponent extends Container {
     }
 
     private appendOutput(appended: string): void {
+        const oldLineCount = this.outputLines.length;
         const lines = appended.split("\n");
-        this.outputLines[this.outputLines.length - 1] += lines.shift() ?? "";
-        this.outputLines.push(...lines);
+        this.outputLines[oldLineCount - 1] += lines.shift() ?? "";
+        const newLines = lines;
+        this.outputLines.push(...newLines);
         this.retainedBytes += Buffer.byteLength(appended);
-        this.preserveViewportAfterTrim(this.trimRetainedOutput());
+        const removedLines = this.trimRetainedOutput();
+        this.preserveViewportAfterTrim(removedLines);
+        this.syncRowIndexAfterAppend(oldLineCount, newLines, removedLines);
     }
 
     private replaceOutput(output: string): void {
         this.outputLines.splice(0, this.outputLines.length, ...output.split("\n"));
         this.retainedBytes = Buffer.byteLength(output);
-        this.preserveViewportAfterTrim(this.trimRetainedOutput());
+        this.trimRetainedOutput();
+        this.rebuildRowIndex(this.viewportWidth);
     }
 
     private trimRetainedOutput(): number {
@@ -453,7 +454,8 @@ export class OutputViewerComponent extends Container {
     }
 
     private preserveViewportAfterTrim(removedLines: number): void {
-        if (!this.autoFollow) this.verticalOffset = Math.max(0, this.verticalOffset - removedLines);
+        if (this.autoFollow || removedLines <= 0 || this.wrapWidth === 0) return;
+        this.verticalOffset = Math.max(0, this.verticalOffset - this.rowStarts[removedLines]);
     }
 
     private padOutputRows(output: string[], layout: OutputViewerLayout): string[] {
@@ -508,12 +510,6 @@ export class OutputViewerComponent extends Container {
         this.requestRender();
     }
 
-    private moveHorizontally(delta: number): void {
-        this.horizontalOffset += delta;
-        this.clampOffsets();
-        this.requestRender();
-    }
-
     private scrollToTop(): void {
         this.verticalOffset = 0;
         this.autoFollow = false;
@@ -528,16 +524,65 @@ export class OutputViewerComponent extends Container {
 
     private clampOffsets(): void {
         this.verticalOffset = Math.max(0, Math.min(this.verticalOffset, this.maximumVerticalOffset()));
-        this.horizontalOffset = Math.max(0, Math.min(this.horizontalOffset, this.maximumHorizontalOffset()));
     }
 
     private maximumVerticalOffset(): number {
-        return Math.max(0, this.outputLines.length - this.outputViewportRows());
+        return Math.max(0, this.totalVisualRows() - this.outputViewportRows());
     }
 
-    private maximumHorizontalOffset(): number {
-        const widestLine = Math.max(0, ...this.outputLines.map((line) => visibleWidth(line)));
-        return Math.max(0, widestLine - this.viewportWidth);
+    private totalVisualRows(): number {
+        return this.rowStarts[this.outputLines.length] ?? 0;
+    }
+
+    private rebuildRowIndex(width: number): void {
+        const starts = [0];
+        let total = 0;
+        for (const line of this.outputLines) {
+            total += wrapTextWithAnsi(line, width).length;
+            starts.push(total);
+        }
+        this.rowStarts = starts;
+        this.wrapWidth = width;
+    }
+
+    private syncRowIndexAfterAppend(oldLineCount: number, newLines: string[], removedLines: number): void {
+        if (this.wrapWidth === 0) return;
+        if (removedLines > 0 || this.outputLines.length === 1) {
+            this.rebuildRowIndex(this.wrapWidth);
+            return;
+        }
+        const width = this.wrapWidth;
+        const starts = this.rowStarts.slice(0, oldLineCount);
+        let total = starts[oldLineCount - 1] + wrapTextWithAnsi(this.outputLines[oldLineCount - 1], width).length;
+        for (const line of newLines) {
+            starts.push(total);
+            total += wrapTextWithAnsi(line, width).length;
+        }
+        starts.push(total);
+        this.rowStarts = starts;
+    }
+
+    private renderOutputRows(maxRows: number): string[] {
+        const start = this.verticalOffset;
+        if (start >= this.totalVisualRows() || maxRows <= 0) return [];
+        const rows: string[] = [];
+        const starts = this.rowStarts;
+        let lo = 0;
+        let hi = this.outputLines.length;
+        while (lo < hi) {
+            const mid = (lo + hi) >> 1;
+            if (starts[mid] <= start) lo = mid + 1;
+            else hi = mid;
+        }
+        const firstLine = lo - 1;
+        for (let i = firstLine; i < this.outputLines.length && rows.length < maxRows; i++) {
+            const wrapped = wrapTextWithAnsi(this.outputLines[i], this.viewportWidth);
+            const from = i === firstLine ? start - starts[i] : 0;
+            for (let r = Math.max(0, from); r < wrapped.length && rows.length < maxRows; r++) {
+                rows.push(wrapped[r]);
+            }
+        }
+        return rows;
     }
 
     private requestRender(): void {

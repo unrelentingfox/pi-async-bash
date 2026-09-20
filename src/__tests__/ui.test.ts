@@ -340,14 +340,22 @@ void describe("async task list keyboard behavior", () => {
         assert.equal(renders.length, 0);
     });
 
-    void it("scrolls output horizontally without widening rendered lines", () => {
+    void it("wraps long lines to the viewport width without horizontal scrolling", () => {
         const { component } = createOutputViewer("0123456789", { columns: 5 });
 
-        component.handleInput("l");
         const output = component.render(5);
 
         assert.ok(output.every((line) => visibleWidth(line) <= 5));
-        assert.match(output.join("\n"), /12345/);
+        assert.match(output.join("\n"), /01234/);
+        assert.match(output.join("\n"), /56789/);
+    });
+
+    void it("scrolls between wrapped rows of a single long line", () => {
+        const { component } = createOutputViewer("0123456789", { columns: 5, rows: 5 });
+
+        assert.match(component.render(5).join("\n"), /56789/);
+        component.handleInput("k");
+        assert.match(component.render(5).join("\n"), /01234/);
     });
 
     void it("ignores editing keys and Enter in the read-only output viewer", () => {
@@ -420,21 +428,13 @@ void describe("async task list keyboard behavior", () => {
         assert.match(fourRows[3] ?? "", /^─+$/);
     });
 
-    void it("clamps output scrolling at every boundary", () => {
+    void it("clamps vertical output scrolling at every boundary", () => {
         const { component } = createOutputViewer("0123456789\n0123456789\n0123456789\n0123456789", { columns: 5, rows: 10 });
 
-        component.handleInput("\x1b[A");
-        component.handleInput("h");
+        for (let i = 0; i < 7; i++) component.handleInput("\x1b[A");
         assert.match(component.render(5).join("\n"), /01234/);
 
-        component.handleInput("\x1b[6~");
-        component.handleInput("\x1b[6~");
-        component.handleInput("\x1b[C");
-        component.handleInput("\x1b[C");
-        component.handleInput("\x1b[C");
-        component.handleInput("\x1b[C");
-        component.handleInput("\x1b[C");
-        component.handleInput("\x1b[C");
+        for (let i = 0; i < 7; i++) component.handleInput("\x1b[6~");
 
         const rendered = component.render(5).join("\n");
         assert.match(rendered, /56789/);
