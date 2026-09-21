@@ -149,21 +149,6 @@ void describe("completionSummary — CC's exact strings", () => {
             `Async command "tests" completed (exit code 0)`
         );
     });
-    void it("monitor summaries", () => {
-        const base = { kind: "monitor" as const, name: "API health" };
-        assert.equal(
-            completionSummary(mkJob({ ...base, status: "completed" })),
-            `Monitor "API health" stream ended`
-        );
-        assert.equal(
-            completionSummary(mkJob({ ...base, status: "failed", exitCode: 2 })),
-            `Monitor "API health" script failed (exit 2)`
-        );
-        assert.equal(
-            completionSummary(mkJob({ ...base, status: "killed" })),
-            `Monitor "API health" stopped`
-        );
-    });
 });
 
 void describe("sendTaskNotification — exactly-once + eviction", () => {
@@ -224,23 +209,6 @@ void describe("sendTaskNotification — exactly-once + eviction", () => {
         assert.equal(reg.jobs.has("job-1-1"), true, "lingers for the lazy sweep");
     });
 
-    void it("evict: false keeps the job in the registry (monitor path)", () => {
-        const { reg, pi, messages } = harness();
-        const job = mkJob({ status: "running" as Job["status"] });
-        add(reg, job);
-        const sent = sendTaskNotification({
-            reg,
-            pi: pi as never,
-            job,
-            status: "completed",
-            summary: `Monitor "watch" stream ended`,
-            evict: false,
-        });
-        assert.equal(sent, true);
-        assert.equal(reg.jobs.has("job-1-1"), true);
-        assert.ok(messages[0].content.includes("<status>completed</status>"));
-    });
-
     void it("a failed send does not retry and does not evict (exactly-once)", () => {
         const { reg, pi, messages } = harness({ deliverThrows: true });
         const job = mkJob({});
@@ -276,18 +244,18 @@ void describe("completeJob — exit-path notification", () => {
         const { reg, pi, ctx, messages } = harness();
         const job = mkJob({ id: "job-9-2", status: "running", exitCode: undefined });
         add(reg, job);
-        markNotified(job); // bash_async_list output / attach raced the exit
+        markNotified(job); // bash_async output / attach raced the exit
         completeJob({ job, code: 1, reg, pi: pi as never, ctx });
         assert.equal(messages.length, 0);
         assert.equal(job.status, "failed");
         assert.equal(reg.jobs.has("job-9-2"), true);
     });
 
-    void it("shouldNotify: false + notified evicts without sending (monitor path)", () => {
+    void it("shouldNotify: false + notified evicts without sending", () => {
         const { reg, pi, ctx, messages } = harness();
         const job = mkJob({ id: "job-9-3", status: "running", exitCode: undefined });
         add(reg, job);
-        markNotified(job); // monitor already sent its own terminal notification
+        markNotified(job); // the outcome was already surfaced by a read
         completeJob({ job, code: 0, reg, pi: pi as never, ctx, shouldNotify: false });
         assert.equal(messages.length, 0);
         assert.equal(reg.jobs.has("job-9-3"), false);

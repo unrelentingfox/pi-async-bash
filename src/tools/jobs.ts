@@ -40,13 +40,13 @@ import {
     terminateJobSilently,
 } from "../lifecycle.ts";
 
-/** Register the `jobs` tool. */
+/** Register the `bash_async` tool. */
 export function registerJobsTool(
     pi: ExtensionAPI,
     reg: BackgroundRegistry
 ): void {
     pi.registerTool({
-        name: "bash_async_list",
+        name: "bash_async",
         label: "Background Jobs",
         description:
             "Manage background jobs: list, output, kill, attach, search, cleanup, and stats.",
@@ -252,7 +252,7 @@ async function attachAction(
             return {
                 content: [
                     textBlock(
-                        `Stopped following ${label} — it's still running in the background. Use bash_async_list output to check on it.`
+                        `Stopped following ${label} — it's still running in the background. Use bash_async output to check on it.`
                     ),
                 ],
                 details: undefined,
@@ -268,7 +268,7 @@ async function attachAction(
     // with the running-branch set above.
     markNotified(job);
     return {
-        content: [textBlock(`${message}. Use bash_async_list output for the full log.`)],
+        content: [textBlock(`${message}. Use bash_async output for the full log.`)],
         details: undefined,
     };
 }

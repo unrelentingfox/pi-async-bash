@@ -6,8 +6,8 @@
 [![Node.js](https://img.shields.io/node/v/pi-async-bash)](https://www.npmjs.com/package/pi-async-bash)
 [![License](https://img.shields.io/github/license/unrelentingfox/pi-async-bash)](https://github.com/unrelentingfox/pi-async-bash/blob/main/LICENSE)
 
-`pi-async-bash` adds asynchronous Bash execution, task management, and event
-watches to [Pi](https://github.com/badlogic/pi-mono).
+`pi-async-bash` adds asynchronous Bash execution and task management to
+[Pi](https://github.com/badlogic/pi-mono).
 
 ## Install
 
@@ -31,10 +31,8 @@ During development, add the local checkout to Pi settings:
 
 | Tool | Parameters | Behavior |
 | --- | --- | --- |
-| `bash` | `command`; optional `timeout`, `run_async`, `description`, `notify` | Overrides Pi's Bash tool. Commands start in the foreground by default. `run_async: true` starts detached work immediately; an optional `timeout` then becomes a decision timeout resolved by `bash_async_decide`. A long foreground command continues asynchronously after `timeout`. `run_async` jobs send one terminal notification unless `notify: false`; commands backgrounded from the foreground always notify. |
-| `bash_async_list` | `action`: `list`, `output`, `kill`, `attach`, `search`, `cleanup`, or `stats`; action-specific `jobId`, `pattern`, `wait` | Lists, reads, follows, searches, stops, cleans up, and reports on async jobs and watches. |
-| `bash_async_watch` | exactly one of `command` or `ws`; `description`; optional `persistent`, `timeout_ms` | Returns immediately and delivers each stdout line or WebSocket text frame as an event. It stops on source exit, timeout, event-rate protection, or `bash_async_list` `kill`. |
-| `bash_async_decide` | `jobId`; `decision`: `keep`, `kill`, or `check` | Resolves a `bash` command started with `run_async` that has exceeded its optional decision timeout. |
+| `bash` | `command`; optional `timeout`, `run_async`, `description`, `notify` | Overrides Pi's Bash tool. Commands start in the foreground by default. `run_async: true` starts detached work immediately. `timeout` applies to the foreground path: a long foreground command auto-backgrounds after `timeout`, and is ignored with `run_async=true`. `run_async` jobs send one terminal notification unless `notify: false`; commands backgrounded from the foreground always notify. |
+| `bash_async` | `action`: `list`, `output`, `kill`, `attach`, `search`, `cleanup`, or `stats`; action-specific `jobId`, `pattern`, `wait` | Lists, reads, follows, searches, stops, cleans up, and reports on async jobs. |
 
 `run_in_background` is not supported. Use `run_async` instead.
 
@@ -57,7 +55,7 @@ The 2-second quick-completion window still returns fast commands inline. Values
 at or below 2 seconds background commands immediately after that window; the
 5-second setting above gives slower commands three more seconds to finish. A
 `timeout` passed to an individual `bash` call overrides this setting. This
-setting does not affect the separate decision timeout on a `run_async` command.
+setting applies to foreground commands; it is ignored for a `run_async` command.
 
 ## Slash commands
 
@@ -75,32 +73,40 @@ a follow-up.
 
 - Async commands use a detached process group and capture combined output in
   `/tmp/pi-bg`.
-- `bash_async_list attach` streams output while it waits. Use `output` for a
+- `bash_async attach` streams output while it waits. Use `output` for a
   bounded non-blocking read.
-- `bash_async_watch` is for many events. Use `bash` with `run_async: true`
-  when only the terminal result matters.
 - The extension rejects naïve long `sleep` commands, warns about interactive
   prompts, caps non-persistent log growth at 100 MiB, limits concurrent jobs,
   and removes stale log files at startup.
 - Same-process `/reload` restores compatible running job records. A fresh Pi
   process never adopts or signals an old process ID, preventing PID reuse bugs.
 
-## Migration from upstream
+## Upgrading from pi-async-bash 0.x
 
-Upgrading this package from a previous release: the separate `bash_async`
-tool was removed. Use `bash` with `run_async: true`. Its `name` parameter is
-now `description`, `notify` (which applies to `run_async` starts) is unchanged, and `timeout` on `run_async` is the
-decision timeout resolved by `bash_async_decide`. The async tool result is now
-the plain Claude Code handle string and no longer repeats the job label; the
-label still shows in `bash_async_list` and job notifications.
+The START tool named `bash_async` was removed — start async jobs with `bash`
+and `run_async: true`. Separately, the job-MANAGEMENT tool named
+`bash_async_list` was renamed to `bash_async`; it is not the old start tool
+and does not start jobs. Also: the start tool's `name` parameter is now
+`description`, `notify` (which applies to `run_async` starts) is unchanged,
+`timeout` now applies only to the foreground path (it is ignored with
+`run_async`), and the `bash_async_decide` tool was also removed. The async
+tool result is now the plain Claude Code handle string and no longer repeats
+the job label; the label still shows in `bash_async` and job notifications.
+
+| 0.x | current |
+| --- | --- |
+| `bash_async` (start tool) | `bash` with `run_async` |
+| `bash_async_list` | `bash_async` |
+
+## Migration from upstream
 
 | Upstream | pi-async-bash |
 | --- | --- |
 | `bash` with `run_in_background` | `bash` with `run_async` |
 | `bash_bg` | `bash` with `run_async` |
-| `jobs` | `bash_async_list` |
-| `monitor` | `bash_async_watch` |
-| `job_decide` | `bash_async_decide` |
+| `jobs` | `bash_async` |
+| `monitor` | removed |
+| `job_decide` | removed; use `bash_async` |
 | `/bg` | `/bash-async` |
 | `/bg-list` | `/bash-async-list` |
 | `/bg-version` | removed |

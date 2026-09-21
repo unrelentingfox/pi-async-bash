@@ -28,11 +28,18 @@ void describe("pi-async-bash public interface", () => {
         const { tools } = loadExtension();
         assert.deepEqual([...tools.keys()].sort(), [
             "bash",
+            "bash_async",
+        ]);
+        for (const legacy of [
             "bash_async_decide",
             "bash_async_list",
             "bash_async_watch",
-        ]);
-        for (const legacy of ["bash_async", "bash_bg", "jobs", "monitor", "job_decide", "agent_bg"]) {
+            "bash_bg",
+            "jobs",
+            "monitor",
+            "job_decide",
+            "agent_bg",
+        ]) {
             assert.equal(tools.has(legacy), false, `${legacy} must not be registered`);
         }
     });

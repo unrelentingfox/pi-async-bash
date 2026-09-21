@@ -74,7 +74,7 @@ void describe("bash run_async — rejects a backgrounded sleep wait", () => {
         const { tool, ctx } = bashAsync();
         await assert.rejects(
             () => tool.execute("t1", { command: "cd /repo; sleep 600; cat log", run_async: true }, undefined, undefined, ctx),
-            /Blocked: sleep 600.*bash_async_list action='attach'/s
+            /Blocked: sleep 600.*bash_async action='attach'/s
         );
     });
 

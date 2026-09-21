@@ -1,7 +1,7 @@
 /** Async Bash task manager for `/bash-async-list`. */
 
 import { DynamicBorder, type Theme } from "@earendil-works/pi-coding-agent";
-import { Container, Key, matchesKey, SelectList, Text, truncateToWidth, wrapTextWithAnsi, type Component, type KeybindingsManager, type SelectItem, type TUI } from "@earendil-works/pi-tui";
+import { Container, Key, matchesKey, SelectList, Text, truncateToWidth, wrapTextWithAnsi, type KeybindingsManager, type SelectItem, type TUI } from "@earendil-works/pi-tui";
 import type { Job, UiContext } from "./types.ts";
 import { MAX_LOG_BYTES, PREVIEW_CHARS } from "./types.ts";
 import type { BackgroundRegistry } from "./state.ts";

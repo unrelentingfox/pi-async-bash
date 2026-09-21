@@ -74,12 +74,12 @@ void describe("session reload continuity", () => {
             isProjectTrusted: () => false,
             sessionManager: { getEntries: () => [snapshot] },
         });
-        const list = await second.tools.get("bash_async_list")!.execute(
+        const list = await second.tools.get("bash_async")!.execute(
             "tool-2", { action: "list" }, undefined, undefined, context,
         ) as { content: Array<{ text: string }> };
         assert.match(list.content[0]!.text, new RegExp(id!));
 
-        const restored = second.tools.get("bash_async_list")!;
+        const restored = second.tools.get("bash_async")!;
         const stopped = await restored.execute(
             "tool-4", { action: "kill", jobId: id }, undefined, undefined, context,
         ) as { content: Array<{ text: string }> };
@@ -112,7 +112,7 @@ void describe("session reload continuity", () => {
             isProjectTrusted: () => false,
             sessionManager: { getEntries: () => [snapshot] },
         });
-        const list = await h.tools.get("bash_async_list")!.execute(
+        const list = await h.tools.get("bash_async")!.execute(
             "tool-3", { action: "list" }, undefined, undefined, context,
         ) as { content: Array<{ text: string }> };
         assert.equal(list.content[0]!.text, "No background jobs");

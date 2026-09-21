@@ -1,15 +1,14 @@
 {
   "name": "pi-async-bash",
   "version": "0.1.0",
-  "description": "Asynchronous Bash tools for Pi: foreground Bash handoff, async jobs, event watches, and task management.",
+  "description": "Asynchronous Bash execution and task management for Pi.",
   "type": "module",
   "keywords": [
     "pi-package",
     "pi-extension",
     "async",
     "bash",
-    "background-jobs",
-    "monitoring"
+    "background-jobs"
   ],
   "author": "Dustin Fox",
   "license": "MIT",

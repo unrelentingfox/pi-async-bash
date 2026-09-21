@@ -1,8 +1,8 @@
 /**
  * pi-async-bash — asynchronous Bash execution for the Pi agent.
  *
- * Registers `bash` (with `run_async`), `bash_async_list`, `bash_async_watch`,
- * and `bash_async_decide`, plus `/bash-async` and `/bash-async-list`.
+ * Registers `bash` (with `run_async`) and `bash_async`,
+ * plus `/bash-async` and `/bash-async-list`.
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -13,9 +13,7 @@ import { stopSidebarTicker } from "./registry.ts";
 import { EVENT } from "./types.ts";
 import { registerBashTool } from "./tools/bash.ts";
 import { registerJobsTool } from "./tools/jobs.ts";
-import { registerMonitorTool } from "./tools/monitor.ts";
 import { registerCommands } from "./commands.ts";
-import { registerJobDecideTool } from "./tools/job-decide.ts";
 import { registerInputHandlers } from "./input.ts";
 import { loadConfig } from "./config.ts";
 
@@ -30,8 +28,6 @@ export default function (pi: ExtensionAPI): void {
     const originalBash = createBashToolDefinition(process.cwd());
     registerBashTool(pi, reg, originalBash);
     registerJobsTool(pi, reg);
-    registerMonitorTool(pi, reg);
-    registerJobDecideTool(pi, reg);
 
     // ── Commands and cooperative steering ─────────────────────────
     registerCommands(pi, reg);

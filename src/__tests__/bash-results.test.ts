@@ -1,8 +1,9 @@
 import { describe, it, after } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { BackgroundRegistry } from "../state.ts";
 import { registerBashTool } from "../tools/bash.ts";
-import { killProcessTree } from "../spawn.ts";
+import { killProcessTree, processExists } from "../spawn.ts";
 import { EVENT, isTerminalStatus, type Job } from "../types.ts";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -199,6 +200,24 @@ void describe("bash tool — Claude Code tool-result strings", () => {
             ctx
         );
         assert.match(res.content[0].text, /Command timed out after 1s/);
+    });
+
+    void it("run_async ignores timeout — the job is still running 1.5s past a 1s timeout", async () => {
+        const { tool, reg, ctx } = harness();
+        await tool.execute(
+            "t6-timeout-ignored",
+            { command: "tail -f /dev/null", run_async: true, timeout: 1 },
+            undefined,
+            undefined,
+            ctx
+        );
+        const job = onlyJob(reg);
+        spawnedPids.push(job.pid);
+        await sleep(1500);
+        assert.equal(job.status, "running", "timeout must not terminal an async job");
+        assert.equal(processExists(job.pid), true, "the process survived the timeout");
+        const log = readFileSync(job.logPath, "utf8");
+        assert.ok(!log.includes("Command timed out after"), "no timeout marker in the log");
     });
 
     void it("an external signal death is reported as killed ('was stopped'), never completed", async () => {

@@ -9,9 +9,8 @@ import type { Job, ForegroundSlot } from "./types.ts";
 export class BackgroundRegistry {
     jobs = new Map<string, Job>();
     foreground = new Map<string, ForegroundSlot>();
-    pendingDecisionJobId: string | undefined;
 
-    /** Per-job AbortController — abort() cancels all monitors/pollers for that job. */
+    /** Per-job AbortController — abort() cancels all pollers/watchers for that job. */
     jobAborts = new Map<string, AbortController>();
 
     nonInteractive = false;

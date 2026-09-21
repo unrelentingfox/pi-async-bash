@@ -11,12 +11,10 @@ import { statSync, unlinkSync } from "node:fs";
 import { formatDuration, jobLabel } from "./format.ts";
 import {
     isTerminalStatus,
-    JOB_ID_PREFIX,
     MAX_CONCURRENT_JOBS,
     PREVIEW_CHARS,
     RECENT_TERMINAL_KEEP,
     type Job,
-    type JobKind,
     type UiContext,
 } from "./types.ts";
 import type { BackgroundRegistry } from "./state.ts";
@@ -27,17 +25,17 @@ import { readBoundedTail, readLastLine } from "./output.ts";
 const ID_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyz";
 
 /**
- * Typed task ids: a one-letter kind prefix, spawning process identifier, and
+ * Typed task ids: a fixed `b` prefix, spawning process identifier, and
  * eight random base36 characters (for example, `b1234-7f3k9a2x`).
  */
-export function newJobId(kind: JobKind, reg?: BackgroundRegistry): string {
+export function newJobId(reg?: BackgroundRegistry): string {
     let id: string;
     do {
         let suffix = "";
         for (let i = 0; i < 8; i++) {
             suffix += ID_ALPHABET[randomInt(0, ID_ALPHABET.length)];
         }
-        id = `${JOB_ID_PREFIX[kind]}${process.pid}-${suffix}`;
+        id = `b${process.pid}-${suffix}`;
     } while (reg?.jobs.has(id));
     return id;
 }
@@ -50,16 +48,9 @@ export function logPathFor(jobId: string): string {
     return `${LOG_DIR}/${jobId}.log`;
 }
 
-/** Sibling stderr-capture path for a monitor's split output. Keeps the
- *  `.log`/`.err` naming convention in one place. */
-export function errPathFor(jobId: string): string {
-    return `${LOG_DIR}/${jobId}.err`;
-}
-
 /**
- * Build a fresh running Job. Centralizes the Job shape so the new `kind`/`stop`
- * fields (and any future additions) don't drift across the bash/
- * bash_async_watch construction sites.
+ * Build a fresh running Job. Centralizes the Job shape so the construction
+ * sites don't drift.
  */
 export function createRunningJob(args: {
     id: string;
@@ -68,7 +59,6 @@ export function createRunningJob(args: {
     logPath: string;
     toolCallId: string;
     name?: string;
-    kind?: JobKind;
     isBackgrounded?: boolean;
 }): Job {
     return {
@@ -81,7 +71,6 @@ export function createRunningJob(args: {
         logPath: args.logPath,
         toolCallId: args.toolCallId,
         isBackgrounded: args.isBackgrounded ?? true,
-        kind: args.kind,
     };
 }
 
@@ -204,12 +193,11 @@ export function renderSidebar(reg: BackgroundRegistry, ctx: UiContext): void {
         runningCount++;
         runningLogs.add(job.logPath);
         const duration = formatDuration(Date.now() - job.startTime);
-        const glyph = job.kind === "monitor" ? "◉" : "▶";
+        const progress = sidebarLastLine(job.logPath) || job.command;
         // Show the job's latest output line as live progress; fall back to the
         // command until there's any output. Re-read each tick by the ticker.
-        const progress = sidebarLastLine(job.logPath) || job.command;
         pills.push(
-            `${glyph} ${jobLabel(job)}: ${progress.slice(0, PREVIEW_CHARS.progress)} (${duration})`
+            `▶ ${jobLabel(job)}: ${progress.slice(0, PREVIEW_CHARS.progress)} (${duration})`
         );
     }
 

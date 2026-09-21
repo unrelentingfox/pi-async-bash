@@ -222,7 +222,7 @@ export type ToolTextUpdate = (update: {
 /**
  * Stream a log file's live tail into a tool's onUpdate callback — the shared
  * "show live output while a job runs" mechanic shared by `bash` and
- * `bash_async_list attach`. Returns the poller's stop handle.
+ * `bash_async attach`. Returns the poller's stop handle.
  */
 export function streamLog(
     logPath: string,

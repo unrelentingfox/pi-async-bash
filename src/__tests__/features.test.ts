@@ -29,7 +29,7 @@ const TMP = "/tmp/pi-patty-features-test";
 
 function makeJob(overrides: Partial<Job> = {}): Job {
     return {
-        id: newJobId("shell"),
+        id: newJobId(),
         command: "echo hello",
         pid: 1,
         startTime: Date.now(),

@@ -1,7 +1,7 @@
 // src/__tests__/spawn.test.ts
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, existsSync, unlinkSync, mkdirSync } from "node:fs";
+import { readFileSync, unlinkSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
