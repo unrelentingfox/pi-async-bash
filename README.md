@@ -22,7 +22,7 @@ During development, add the local checkout to Pi settings:
 ```json
 {
   "packages": [
-    "/local/home/dustinfx/workplace/pi/pi-async-bash"
+    "/path/to/pi-async-bash"
   ]
 }
 ```
@@ -31,11 +31,10 @@ During development, add the local checkout to Pi settings:
 
 | Tool | Parameters | Behavior |
 | --- | --- | --- |
-| `bash` | `command`; optional `timeout`, `run_async`, `description` | Overrides Pi's Bash tool. Commands start in the foreground by default. `run_async: true` starts detached work immediately. A long foreground command continues asynchronously after `timeout`. |
-| `bash_async` | `command`; optional `name`, `timeout`, `notify` | Starts a command asynchronously, shows the command in the call row, and returns its job ID and `/tmp/pi-bg/<jobId>.log` path. It sends one terminal notification unless `notify: false`. |
+| `bash` | `command`; optional `timeout`, `run_async`, `description`, `notify` | Overrides Pi's Bash tool. Commands start in the foreground by default. `run_async: true` starts detached work immediately; an optional `timeout` then becomes a decision timeout resolved by `bash_async_decide`. A long foreground command continues asynchronously after `timeout`. `run_async` jobs send one terminal notification unless `notify: false`; commands backgrounded from the foreground always notify. |
 | `bash_async_list` | `action`: `list`, `output`, `kill`, `attach`, `search`, `cleanup`, or `stats`; action-specific `jobId`, `pattern`, `wait` | Lists, reads, follows, searches, stops, cleans up, and reports on async jobs and watches. |
 | `bash_async_watch` | exactly one of `command` or `ws`; `description`; optional `persistent`, `timeout_ms` | Returns immediately and delivers each stdout line or WebSocket text frame as an event. It stops on source exit, timeout, event-rate protection, or `bash_async_list` `kill`. |
-| `bash_async_decide` | `jobId`; `decision`: `keep`, `kill`, or `check` | Resolves a `bash_async` command that has exceeded its optional timeout. |
+| `bash_async_decide` | `jobId`; `decision`: `keep`, `kill`, or `check` | Resolves a `bash` command started with `run_async` that has exceeded its optional decision timeout. |
 
 `run_in_background` is not supported. Use `run_async` instead.
 
@@ -58,7 +57,7 @@ The 2-second quick-completion window still returns fast commands inline. Values
 at or below 2 seconds background commands immediately after that window; the
 5-second setting above gives slower commands three more seconds to finish. A
 `timeout` passed to an individual `bash` call overrides this setting. This
-setting does not affect the separate decision timeout on `bash_async`.
+setting does not affect the separate decision timeout on a `run_async` command.
 
 ## Slash commands
 
@@ -78,8 +77,8 @@ a follow-up.
   `/tmp/pi-bg`.
 - `bash_async_list attach` streams output while it waits. Use `output` for a
   bounded non-blocking read.
-- `bash_async_watch` is for many events. Use `bash` with `run_async: true` or
-  `bash_async` when only the terminal result matters.
+- `bash_async_watch` is for many events. Use `bash` with `run_async: true`
+  when only the terminal result matters.
 - The extension rejects naïve long `sleep` commands, warns about interactive
   prompts, caps non-persistent log growth at 100 MiB, limits concurrent jobs,
   and removes stale log files at startup.
@@ -88,10 +87,17 @@ a follow-up.
 
 ## Migration from upstream
 
+Upgrading this package from a previous release: the separate `bash_async`
+tool was removed. Use `bash` with `run_async: true`. Its `name` parameter is
+now `description`, `notify` (which applies to `run_async` starts) is unchanged, and `timeout` on `run_async` is the
+decision timeout resolved by `bash_async_decide`. The async tool result is now
+the plain Claude Code handle string and no longer repeats the job label; the
+label still shows in `bash_async_list` and job notifications.
+
 | Upstream | pi-async-bash |
 | --- | --- |
 | `bash` with `run_in_background` | `bash` with `run_async` |
-| `bash_bg` | `bash_async` |
+| `bash_bg` | `bash` with `run_async` |
 | `jobs` | `bash_async_list` |
 | `monitor` | `bash_async_watch` |
 | `job_decide` | `bash_async_decide` |

@@ -2,7 +2,7 @@
 //
 // `monitor` tool — a streaming-event background watch. Each stdout line (or
 // WebSocket text frame) becomes one notification delivered into the agent's
-// turn. This is distinct from bash_async/run_async (one notification on
+// turn. This is distinct from run_async (one notification on
 // completion): monitor is for per-event streams (tail -f | grep, poll loops,
 // file watches, ws feeds), not one-shot "wait until done".
 

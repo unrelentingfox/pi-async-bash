@@ -90,8 +90,8 @@ export function startBackgroundJob(args: {
 
 /**
  * Standard completion flow after a job exits — abortJob → markTerminal →
- * notify → renderSidebar. Shared by every tool's exit callback (bash,
- * bash_async, and bash_async_watch as the canonical termination protocol.
+ * notify → renderSidebar. Shared by every tool's exit callback (bash and
+ * bash_async_watch) as the canonical termination protocol.
  *
  * The notification is Claude Code's per-job <task-notification>, sent the
  * moment the job exits (see notify.ts). A successful send evicts the job
@@ -99,7 +99,7 @@ export function startBackgroundJob(args: {
  * already known (killed silently, or read via bash_async_list output/attach) skip the
  * notification and linger until the lazy sweep in `bash_async_list list`. Monitors own
  * their terminal notification (monitor-session, shouldNotify: false) and are
- * evicted here once it has fired. A `shouldNotify: false` job (bash_async
+ * evicted here once it has fired. A `shouldNotify: false` job (bash run_async
  * `notify: false`) is latched notified WITHOUT sending — "don't notify" IS
  * notified — so it evicts too and never lingers as a permanent entry.
  */

@@ -293,7 +293,7 @@ void describe("completeJob — exit-path notification", () => {
         assert.equal(reg.jobs.has("job-9-3"), false);
     });
 
-    void it("shouldNotify: false without prior notice still evicts (bash_async notify: false)", () => {
+    void it("shouldNotify: false without prior notice still evicts", () => {
         const { reg, pi, ctx, messages } = harness();
         const job = mkJob({ id: "job-9-4", status: "running", exitCode: undefined });
         add(reg, job);

@@ -14,7 +14,7 @@ export function registerJobDecideTool(pi: ExtensionAPI, reg: BackgroundRegistry)
         description: "Keep, stop, or inspect an asynchronous Bash command that exceeded its timeout.",
         promptSnippet: "Resolve a timed asynchronous Bash command",
         promptGuidelines: [
-            "Use bash_async_decide after a bash_async timeout notification.",
+            "Use bash_async_decide after a bash run_async timeout notification.",
             "keep leaves the command running, kill stops it, and check shows its current output.",
         ],
         parameters: Type.Object({

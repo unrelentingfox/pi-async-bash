@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { detectBlockedSleep } from "../lifecycle.ts";
 import { BackgroundRegistry } from "../state.ts";
-import { registerBashBgTool } from "../tools/bash-bg.ts";
+import { registerBashTool } from "../tools/bash.ts";
 
 void describe("detectBlockedSleep — naive-wait detection", () => {
     void it("blocks a standalone long sleep", () => {
@@ -58,11 +58,11 @@ void describe("detectBlockedSleep — naive-wait detection", () => {
     });
 });
 
-void describe("bash_async — rejects a backgrounded sleep wait", () => {
-    function bashBg() {
+void describe("bash run_async — rejects a backgrounded sleep wait", () => {
+    function bashAsync() {
         let tool: { execute: (id: string, p: unknown, s: unknown, u: unknown, c: unknown) => Promise<unknown> } | undefined;
         const pi = { registerTool: (def: typeof tool) => { tool = def; }, sendMessage() {} };
-        registerBashBgTool(pi as never, new BackgroundRegistry());
+        registerBashTool(pi as never, new BackgroundRegistry(), {} as never);
         const ctx = {
             cwd: process.cwd(),
             ui: { notify() {}, setWidget() {}, setStatus() {}, theme: { fg: (_c: string, t: string) => t } },
@@ -70,17 +70,17 @@ void describe("bash_async — rejects a backgrounded sleep wait", () => {
         return { tool: tool!, ctx };
     }
 
-    void it("blocks an embedded sleep in bash_async (previously unguarded)", async () => {
-        const { tool, ctx } = bashBg();
+    void it("blocks an embedded sleep in run_async (previously unguarded)", async () => {
+        const { tool, ctx } = bashAsync();
         await assert.rejects(
-            () => tool.execute("t1", { command: "cd /repo; sleep 600; cat log" }, undefined, undefined, ctx),
+            () => tool.execute("t1", { command: "cd /repo; sleep 600; cat log", run_async: true }, undefined, undefined, ctx),
             /Blocked: sleep 600.*bash_async_list action='attach'/s
         );
     });
 
     void it("still allows a real backgrounded command", async () => {
-        const { tool, ctx } = bashBg();
-        const res = await tool.execute("t2", { command: "echo hi" }, undefined, undefined, ctx);
+        const { tool, ctx } = bashAsync();
+        const res = await tool.execute("t2", { command: "echo hi", run_async: true }, undefined, undefined, ctx);
         assert.ok(res, "non-sleep command runs");
     });
 });
