@@ -120,7 +120,7 @@ void describe("formatJobLine", () => {
             toolCallId: "tc-1",
             isBackgrounded: true,
         };
-        assert.match(formatJobLine(job), /^job-1-1 \[shell\]: sleep 60 - ▶ bg \(5s\) \(5s\)$/);
+        assert.match(formatJobLine(job), /^job-1-1: sleep 60 - ▶ bg \(5s\) \(5s\)$/);
     });
     void it("named jobs show the name first", () => {
         const job: Job = {
@@ -134,7 +134,7 @@ void describe("formatJobLine", () => {
             toolCallId: "tc-1",
             isBackgrounded: false,
         };
-        assert.match(formatJobLine(job), /^build \(job-1-2\) \[shell\]:/);
+        assert.match(formatJobLine(job), /^build \(job-1-2\):/);
     });
     void it("terminal jobs render their status label", () => {
         const job = makeJob({ status: "completed" });

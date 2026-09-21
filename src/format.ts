@@ -40,7 +40,6 @@ export function statusLabel(job: Job, duration?: string): string {
         case "pending":
             return "◌ pending";
         case "running":
-            if (job.kind === "monitor") return `◉ monitor (${dur})`;
             return job.isBackgrounded ? `▶ bg (${dur})` : `▶ fg (${dur})`;
         case "completed":
             return "✓ completed";
@@ -51,17 +50,14 @@ export function statusLabel(job: Job, duration?: string): string {
     }
 }
 
-/** "b7f3k9a2x1 [shell]: ls -la (last 80 chars)" — single line for `bash_async_list list`.
- *  Every line carries the kind tag (shell/agent/monitor) so the unified list
- *  shows what each task is. */
+/** "b7f3k9a2x1: ls -la (last 80 chars)" — single line for `bash_async list`. */
 export function formatJobLine(job: Job): string {
     const head = job.name ? `${job.name} (${job.id})` : job.id;
-    const kind = job.kind ?? "shell";
     const duration =
         job.status === "running"
             ? ` (${formatDuration(Date.now() - job.startTime)})`
             : "";
-    return `${head} [${kind}]: ${job.command.slice(0, PREVIEW_CHARS.line)} - ${statusLabel(job)}${duration}`;
+    return `${head}: ${job.command.slice(0, PREVIEW_CHARS.line)} - ${statusLabel(job)}${duration}`;
 }
 
 /** Truncate a tail with a consistent "showing last N chars" marker. */

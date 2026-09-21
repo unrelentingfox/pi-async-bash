@@ -19,19 +19,6 @@ export const OUTPUT_PREVIEW_CHARS = 12_000;
 export const RECENT_TERMINAL_KEEP = 20;
 export const MAX_CONCURRENT_JOBS = 16;
 
-// --- Monitor (streaming-event) constants ---
-/** Poll cadence for the line-accurate follower. Lines read within one tick are
- *  batched into a single event — so this doubles as the ~200ms batch window. */
-export const MONITOR_POLL_MS = 200;
-/** Default streaming watch deadline (matches Claude Code's Monitor). */
-export const MONITOR_DEFAULT_TIMEOUT_MS = 300_000;
-/** Hard ceiling on a monitor's deadline. */
-export const MONITOR_MAX_TIMEOUT_MS = 3_600_000;
-/** Sliding window for firehose detection. */
-export const MONITOR_RATE_WINDOW_MS = 10_000;
-/** Max emitted lines per window before a monitor is auto-stopped. */
-export const MONITOR_MAX_LINES_PER_WINDOW = 500;
-
 export const PREVIEW_CHARS = {
     sidebar: 25,
     taskList: 40,
@@ -51,17 +38,6 @@ export function isTerminalStatus(status: JobStatus): boolean {
     return status === "completed" || status === "failed" || status === "killed";
 }
 
-/** What kind of asynchronous job this is. "shell" is the default; "monitor"
- * is a streaming-event watch from the bash_async_watch tool. */
-export type JobKind = "shell" | "monitor";
-
-/** Typed job identifiers use a kind prefix, the spawning process identifier, and
- * eight random base36 characters (for example, `b1234-7f3k9a2x`). */
-export const JOB_ID_PREFIX: Record<JobKind, string> = {
-    shell: "b",
-    monitor: "m",
-};
-
 export interface Job {
     id: string;
     name?: string;
@@ -77,14 +53,10 @@ export interface Job {
     resolveDone?: () => void;
     /** Exactly-once latch for the terminal <task-notification> (Claude Code's
      *  `notified` flag). Set BEFORE the notification send, before a deliberate
-     *  kill, and when the agent reads the outcome via bash_async_list output/attach — any
+     *  kill, and when the agent reads the outcome via bash_async output/attach — any
      *  path that already surfaced the result suppresses the notification. */
     notified?: boolean;
     isBackgrounded: boolean;
-    /** Defaults to "shell" when absent. */
-    kind?: JobKind;
-    /** Transient teardown hook (follower + ws socket). */
-    stop?: () => void;
 }
 
 export type BackgroundReason = "manual" | "timeout";
@@ -100,7 +72,6 @@ export interface ForegroundSlot {
 export const EVENT = {
     stall: "bg-stall",
     taskNotification: "task-notification",
-    monitorEvent: "bg-monitor-event",
 } as const;
 
 export type EventName = (typeof EVENT)[keyof typeof EVENT];
@@ -110,13 +81,13 @@ export type EventName = (typeof EVENT)[keyof typeof EVENT];
  *  pi queues it while the agent is streaming and delivers it at the next
  *  tool-call boundary — Claude Code's 'next' priority. Use when the message
  *  IS something the agent must react to now: a background job's terminal
- *  <task-notification>, a stall warning, a deadline decision. */
+ *  <task-notification>, a stall warning. */
 export const DELIVER_STEER = { deliverAs: "steer", triggerTurn: true } as const;
 /** Queue the message behind the current turn as a PASSIVE follow-up. The agent
  *  picks it up on its next natural turn (when the user re-engages or the
- *  current turn ends) but it does NOT spawn a new turn on its own. Monitor
- *  stream events are informational and never force an unsolicited
- *  acknowledgment or starve user input.
+ *  current turn ends) but it does NOT spawn a new turn on its own. The
+ *  oversize auto-kill uses this: the job is already terminated, so the report
+ *  never forces an unsolicited acknowledgment or starves user input.
  *  NOTE: sendMessage-only — `pi.sendUserMessage` rejects `triggerTurn` and
  *  takes just `{ deliverAs: "followUp" }`. */
 export const DELIVER_FOLLOWUP = { deliverAs: "followUp", triggerTurn: false } as const;

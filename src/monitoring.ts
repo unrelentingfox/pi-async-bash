@@ -33,15 +33,11 @@ import { describeJob } from "./format.ts";
 export function watchStalls(args: {
     jobId: string;
     command: string;
-    /** Job name (bash/bash_async `description`); falls back to the command. */
+    /** Job name (bash `description`); falls back to the command. */
     name?: string;
     logPath: string;
     pi: ExtensionAPI;
     onOversize?: () => void;
-    /** Skip the interactive-prompt stall heuristic (used for monitors). */
-    disablePromptStall?: boolean;
-    /** Skip the oversize auto-kill (used for persistent monitors). */
-    disableOversizeKill?: boolean;
 }): () => void {
     let lastSize = 0;
     let lastGrowth = Date.now();
@@ -53,7 +49,7 @@ export function watchStalls(args: {
         try {
             const { size } = fsStatSync(args.logPath);
 
-            if (size > MAX_LOG_BYTES && !args.disableOversizeKill) {
+            if (size > MAX_LOG_BYTES) {
                 cancelled = true;
                 if (args.onOversize) args.onOversize();
                 args.pi.sendMessage(
@@ -72,7 +68,6 @@ export function watchStalls(args: {
                 lastSize = size;
                 lastGrowth = Date.now();
             } else if (
-                !args.disablePromptStall &&
                 Date.now() - lastGrowth >= STALL_THRESHOLD_MS &&
                 size !== lastPromptCheckSize
             ) {

@@ -3,6 +3,8 @@
  *
  * Single file-descriptor backend (no tmux):
  *   - run_async=true starts asynchronous execution and returns a job handle
+ *   - run_async jobs send one terminal notification unless notify=false;
+ *     commands backgrounded from the foreground always notify
  *   - foreground commands race completion against asynchronous handoff
  *   - a 2s quick-completion window skips handoff machinery
  *   - `/bash-async`, cooperative input, or the timeout timer move a command to async execution
@@ -69,10 +71,12 @@ export function registerBashTool(
             "Run shell commands; long-running commands continue asynchronously or use run_async=true",
         promptGuidelines: [
             "Use bash with run_async=true when a command is expected to run for a long time.",
-            "run_async is for ONE notification (the command exits when done). For per-event streaming (watching logs, polling an API, file changes), use the bash_async_watch tool instead.",
-            "Never `sleep N` to wait for something — the job lingers for the full sleep. Wait on a background job with bash_async_list action='attach', watch with the bash_async_watch tool, or poll with an `until` loop that exits when ready.",
-            "Check background job status with bash_async_list action='list'.",
-            "Read background output with bash_async_list action='output'.",
+            "run_async jobs send one terminal notification; pass notify=false to suppress it. A command that starts in the foreground and is later backgrounded always notifies.",
+            "run_async is for ONE notification (the command exits when done). For per-event streaming (watching logs, polling an API, file changes), poll with an `until` loop that exits when ready.",
+            "Never `sleep N` to wait for something — the job lingers for the full sleep. Wait on a background job with bash_async action='attach', or poll with an `until` loop that exits when ready.",
+            "Give the job a description when it will be easier to track with bash_async.",
+            "Check background job status with bash_async action='list'.",
+            "Read background output with bash_async action='output'.",
         ],
         parameters: bashParamSchema,
 
@@ -82,6 +86,7 @@ export function registerBashTool(
                 timeout?: number;
                 run_async?: boolean;
                 description?: string;
+                notify?: boolean;
             };
             const bashCtx = ctx as BashCtx;
 
@@ -105,6 +110,7 @@ export function registerBashTool(
                     reg,
                     pi,
                     ctx: bashCtx,
+                    shouldNotify: p.notify,
                 });
             }
 
@@ -119,6 +125,7 @@ export function registerBashTool(
                 ctx: bashCtx,
                 reg,
                 pi,
+                description: p.description,
             });
         },
     });
@@ -135,10 +142,11 @@ async function runForeground(args: {
     ctx: BashCtx;
     reg: BackgroundRegistry;
     pi: ExtensionAPI;
+    description?: string;
 }): Promise<AgentToolResult<BashToolDetails | undefined>> {
     const { toolCallId, command, timeoutMs, signal, onUpdate, ctx, reg, pi } =
         args;
-    const id = newJobId("shell", reg);
+    const id = newJobId(reg);
     const logPath = logPathFor(id);
 
     // Spawn WITHOUT wiring the turn signal to a process kill. Cooperative
@@ -184,6 +192,7 @@ async function runForeground(args: {
 
     const job = createRunningJob({
         id,
+        name: args.description,
         command,
         pid: spawned.pid,
         logPath,
@@ -205,7 +214,13 @@ async function runForeground(args: {
         reg.foreground.delete(toolCallId);
         job.isBackgrounded = true;
         markStarted(reg);
-        startBackgroundJob({ reg, pi, ctx, job, exit: spawned.exit });
+        startBackgroundJob({
+            reg,
+            pi,
+            ctx,
+            job,
+            exit: spawned.exit,
+        });
     };
 
     // Timeout timer.
@@ -316,8 +331,9 @@ function spawnBackground(args: {
     reg: BackgroundRegistry;
     pi: ExtensionAPI;
     ctx: UiContext;
+    shouldNotify?: boolean;
 }): AgentToolResult<BashToolDetails | undefined> {
-    const id = newJobId("shell", args.reg);
+    const id = newJobId(args.reg);
     const logPath = logPathFor(id);
 
     const spawned = spawnWithFileOutput({
@@ -335,7 +351,14 @@ function spawnBackground(args: {
         toolCallId: args.toolCallId,
     });
     add(args.reg, job);
-    startBackgroundJob({ reg: args.reg, pi: args.pi, ctx: args.ctx, job, exit: spawned.exit });
+    startBackgroundJob({
+        reg: args.reg,
+        pi: args.pi,
+        ctx: args.ctx,
+        job,
+        exit: spawned.exit,
+        shouldNotify: args.shouldNotify,
+    });
 
     return {
         content: [

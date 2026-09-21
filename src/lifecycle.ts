@@ -3,10 +3,9 @@
  *
  * Collects the cross-cutting concerns — completion notification, timeout
  * scheduling, terminal-state marking, and cleanup (kill) — in one place.
- * Monitoring (progress polling, stall detection) lives in monitoring.ts.
+ * Stall detection lives in monitoring.ts.
  */
 
-import { readFileSync } from "node:fs";
 import { statSync as fsStatSync } from "node:fs";
 import { readdir, stat, unlink } from "node:fs/promises";
 import { join as pathJoin } from "node:path";
@@ -38,9 +37,8 @@ export function assertJobSlot(reg: BackgroundRegistry): void {
 
 /**
  * Wire a background job's lifecycle: completion promise, abort controller,
- * stall watcher, and the exit→completeJob hand-off. The job must already be in
- * the registry. Returns the job's AbortController so callers can attach extra
- * monitoring or timeout cleanup.
+ * stall watcher, and the exit→completeJob hand-off. The job must already be
+ * in the registry.
  */
 export function startBackgroundJob(args: {
     reg: BackgroundRegistry;
@@ -49,14 +47,7 @@ export function startBackgroundJob(args: {
     job: Job;
     exit: Promise<SpawnExit>;
     shouldNotify?: boolean;
-    /** Suppress the interactive-prompt stall heuristic (monitors stream their
-     *  own output, so a quiet tail is normal, not a stuck prompt). */
-    disablePromptStall?: boolean;
-    /** Suppress the oversize auto-kill (persistent log tails are expected to
-     *  grow without bound). */
-    disableOversizeKill?: boolean;
-    onExit?: (result: SpawnExit) => void;
-}): AbortController {
+}): void {
     ensureCompletionPromise(args.job);
     const jobAc = createJobAbort(args.reg, args.job.id);
     const cancelStall = watchStalls({
@@ -65,13 +56,10 @@ export function startBackgroundJob(args: {
         name: args.job.name,
         logPath: args.job.logPath,
         pi: args.pi,
-        disablePromptStall: args.disablePromptStall,
-        disableOversizeKill: args.disableOversizeKill,
         onOversize: () => terminateJobSilently(args.reg, args.job),
     });
     jobAc.signal.addEventListener("abort", cancelStall, { once: true });
     void args.exit.then((result) => {
-        args.onExit?.(result);
         completeJob({
             job: args.job,
             code: result.code,
@@ -83,23 +71,20 @@ export function startBackgroundJob(args: {
         });
     });
     renderSidebar(args.reg, args.ctx);
-    return jobAc;
 }
 
 // --- Terminal-state marking ----------------------------------------------
 
 /**
  * Standard completion flow after a job exits — abortJob → markTerminal →
- * notify → renderSidebar. Shared by every tool's exit callback (bash,
- * bash_async, and bash_async_watch as the canonical termination protocol.
+ * notify → renderSidebar. Shared by the bash tool's exit callback as the
+ * canonical termination protocol.
  *
  * The notification is Claude Code's per-job <task-notification>, sent the
  * moment the job exits (see notify.ts). A successful send evicts the job
  * from the live registry (terminal + notified). Jobs whose outcome is
- * already known (killed silently, or read via bash_async_list output/attach) skip the
- * notification and linger until the lazy sweep in `bash_async_list list`. Monitors own
- * their terminal notification (monitor-session, shouldNotify: false) and are
- * evicted here once it has fired. A `shouldNotify: false` job (bash_async
+ * already known (killed silently, or read via bash_async output/attach) skip the
+ * notification and linger until the lazy sweep in `bash_async list`. A `shouldNotify: false` job (bash run_async
  * `notify: false`) is latched notified WITHOUT sending — "don't notify" IS
  * notified — so it evicts too and never lingers as a permanent entry.
  */
@@ -186,7 +171,7 @@ export function markKilledSilently(job: Job): void {
     markNotified(job);
 }
 
-/** Kill a job quietly and abort its registered monitors/timers. The notified
+/** Kill a job quietly and abort its registered timers. The notified
  *  latch is set BEFORE the kill so the exit handler's notification is
  *  suppressed (Ctrl+Shift+X, jobs kill, session quit). */
 export function terminateJobSilently(reg: BackgroundRegistry, job: Job): void {
@@ -198,7 +183,7 @@ export function terminateJobSilently(reg: BackgroundRegistry, job: Job): void {
 
 // --- Per-job abort (cleanup) ---------------------------------------------
 
-/** Create an AbortController for a job. Aborting it cancels all monitors. */
+/** Create an AbortController for a job. Aborting it cancels its watcher. */
 export function createJobAbort(
     reg: BackgroundRegistry,
     jobId: string
@@ -210,7 +195,7 @@ export function createJobAbort(
     return ac;
 }
 
-/** Abort all monitors for a job and remove the controller. */
+/** Abort a job's watchers and remove the controller. */
 export function abortJob(reg: BackgroundRegistry, jobId: string): void {
     const ac = reg.jobAborts.get(jobId);
     if (ac) {
@@ -225,10 +210,6 @@ export function abortJob(reg: BackgroundRegistry, jobId: string): void {
  * was already dropped).
  */
 export function terminateJob(job: Job): void {
-    // Monitors carry a transient teardown hook (follower + ws socket). A ws
-    // monitor has pid 0, so the process-tree kill below is a no-op for it and
-    // job.stop does the real work; a command monitor needs both.
-    job.stop?.();
     // No liveness probe: killProcessTree already swallows ESRCH, and probing
     // first would be a TOCTOU race. killProcessTree itself guards pid <= 0.
     killProcessTree(job.proc?.pid ?? job.pid, "SIGTERM");
@@ -338,9 +319,9 @@ export function isAutoBackgroundAllowed(command: string): boolean {
 export const SLEEP_WAIT_GUIDANCE =
     "A fixed `sleep N` to wait wastes time and leaves a job lingering for the " +
     "full duration. Instead:\n" +
-    "• Waiting on a background job you started? Use bash_async_list action='attach' — it " +
+    "• Waiting on a background job you started? Use bash_async action='attach' — it " +
     "returns as soon as that job finishes.\n" +
-    "• Waiting for a condition? Use the bash_async_watch tool, or a poll loop that EXITS " +
+    "• Waiting for a condition? Use a poll loop that EXITS " +
     "when ready (e.g. `until grep -q READY log; do sleep 0.5; done`).\n" +
     "• Just pacing/rate-limiting? Keep it under 2 seconds.";
 
@@ -435,8 +416,8 @@ export async function cleanupStaleRuntimeArtifacts(): Promise<void> {
 /** Serialize only data that can be safely restored after a same-process reload. */
 export function serializeJobs(
     jobs: Iterable<Job>,
-): Array<Omit<Job, "proc" | "donePromise" | "resolveDone" | "stop">> {
-    return Array.from(jobs, ({ proc: _proc, donePromise: _done, resolveDone: _resolve, stop: _stop, ...job }) => job);
+): Array<Omit<Job, "proc" | "donePromise" | "resolveDone">> {
+    return Array.from(jobs, ({ proc: _proc, donePromise: _done, resolveDone: _resolve, ...job }) => job);
 }
 
 
